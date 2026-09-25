@@ -256,7 +256,6 @@ def run(output,*,live=False,profile_db=None,master_key=None,max_calls=40,source_
             secrets={}
             if live:secrets=install_profiles(store,config,profile_db,master_key)
             else:
-                from outreach.profiles import Profiles
                 config.update({'api_key':'synthetic-only'})
             smtp=ForbiddenTransport();imap=ForbiddenTransport()
             ai=PreviewAI(store,config,None if live else MockHTTP(),max_calls)
