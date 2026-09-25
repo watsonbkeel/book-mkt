@@ -6,10 +6,20 @@ from .domain import BOOK_TITLE,BOOK_SUBTITLE,AUTHOR,BOOK_URL,CHAPTERS,validate_i
 from .profiles import digest
 COPY_FIELDS={'subject','body','recipient_claims','book_fact_ids','selected_chapter_ids','offered_next_step','asset_id','asset_version'}
 CONTRACT=3
-POLICY_VERSION='1.3.1-1'
+POLICY_VERSION='1.3.2-editorial-1'
+POSITIONING_VERSION='capability-expansion-1'
+PROMPT_VERSION='editorial-prompts-1'
+AUTHOR_POSITIONING={
+ 'version':POSITIONING_VERSION,
+ 'core':'Use AI to direct other AIs so a person can attempt games, tools and complex work beyond their current skills, with guidance and checks.',
+ 'method':'Discuss a first plan with a planning AI; ask several advisor AIs to challenge assumptions and improve it; the person chooses the goal and tradeoffs; execution AIs implement; different AIs check the actual result against running evidence and human acceptance.',
+ 'beginner_aim':'Even a school-age beginner may tackle a game or tool beyond their current skills with guidance, plan reviews and result checks. This is a teaching aim, not a verified student outcome or a guarantee.',
+ 'boundaries':'AI agreement is not proof. No claim of a particular student result, age, time, success rate, revenue, autonomous child work or official product mode. Do not present a hypothetical recipient use as their known need.',
+}
 BOOK_FACTS={'title':BOOK_TITLE,'subtitle':BOOK_SUBTITLE,'author':AUTHOR,'publication':'Published on Amazon',
- 'method':'Plan with one AI; use its written brief to direct other AIs to build and check. Humans keep important decisions.',
- 'limits':'Practical exercises, not guaranteed results, a children’s curriculum or evidence of customer outcomes.',
+ 'method':AUTHOR_POSITIONING['method'],
+ 'author_approved_positioning':AUTHOR_POSITIONING,
+ 'limits':AUTHOR_POSITIONING['boundaries'],
  'chapters':CHAPTERS}
 def ku_active(config,now=None):
     until=config.get('ku_enrolled_until','')
@@ -24,7 +34,7 @@ def book_facts(config,now=None,*,reply=False):
     return facts
 
 def book_version(config,now=None):
-    return digest(book_facts(config,now))
+    return digest({'facts':book_facts(config,now),'positioning_version':POSITIONING_VERSION,'prompt_version':PROMPT_VERSION})
 
 def quality_floor(verdict,config):
     if verdict.get('approved') is not True:return verdict
@@ -39,7 +49,7 @@ def validate_copy(value,source_rows,assets=(),initial=True,book=None,ku_allowed=
     allowed=COPY_FIELDS
     if set(value)-allowed:raise ValueError('Unknown draft fields; recipient/tools not allowed')
     subject=safe_header(value.get('subject'),240);body=value.get('body')
-    if not isinstance(body,str) or not 20<=len(body.split())<=(120 if initial else 220):raise ValueError('Invalid core body word count')
+    if not isinstance(body,str) or not (80 if initial else 20)<=len(body.split())<=(120 if initial else 220):raise ValueError('Invalid core body word count')
     policy_text_guard(subject,initial=initial,ku_allowed=ku_allowed);policy_text_guard(body,initial=initial,ku_allowed=ku_allowed)
     if sensitive_request(body) or re.search(r'(?:send|share|provide|attach).{0,50}(?:full|whole|entire|complete).{0,20}(?:book|chapter)|(?:send|share|provide|attach).{0,25}(?:PDF|EPUB|chapter file|chapter text)',body,re.I):raise ValueError('Unsafe commitment/instruction')
     if initial:

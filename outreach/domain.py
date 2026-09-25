@@ -60,7 +60,7 @@ def clean_reply(text:str)->str:
     return '\n'.join(kept).strip()[:12000]
 
 def opt_out(text:str)->bool:
-    return bool(re.search(r'\b(unsubscribe|remove me|stop (?:emailing|contacting|sending)|do not (?:email|contact)|don[’\']t (?:email|contact)|not interested|no (?:more|further) emails?|opt[ -]?out)\b|^\s*stop[.!\s]*$|退订|不要再发|请勿联系',text,re.I))
+    return bool(re.search(r'\b(unsubscribe|remove me|stop (?:emailing|contacting|sending)|do not (?:email|contact)|don[’\']t (?:email|contact)|not interested|no (?:more|further) emails?|opt[ -]?out)\b|^\s*(?:stop|nope)[.!\s]*$|退订|不要再发|请勿联系',text,re.I))
 
 def sensitive_request(text:str)->bool:
     return bool(re.search(r'ignore (?:all |the |previous )*instructions|system prompt|api[ _-]?key|password|credentials|send.{0,20}(?:pdf|epub|full book|whole book)|refund|reimburse|gift card|five[ -]?star|5[ -]?star|payment|copyright|legal action|delete (?:my|all).{0,25}data',text,re.I))

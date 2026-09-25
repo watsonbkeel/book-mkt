@@ -6,7 +6,7 @@ from outreach.settings import Config
 from outreach.engine import Engine
 from outreach.ai import AI,ProviderError,BudgetExceeded
 from outreach.profiles import Profiles,digest
-from outreach.contracts import validate_copy,CONTRACT
+from outreach.contracts import validate_copy,CONTRACT,POLICY_VERSION,book_version
 from synthetic import seed,SyntheticAI,full_copy,verdict,BODY
 
 class Mail:
@@ -107,7 +107,10 @@ def test_hard_policy_cannot_be_overruled_by_positive_ai(env,extra):
 def test_approved_example_fulfillment_and_missing_asset(env):
     s,c,cid,e=env
     example='Original teaching example: ask one AI to list the decisions needed for a small tool. Keep the choices yourself, ask for a build brief, then have another AI build and a third check the result against your criteria.'
-    aid=s.execute('INSERT INTO assets(contact_id,body,content_hash,approved,created_at) VALUES(?,?,?,?,?)',(cid,example,digest(example),1,time.time()))
+    review=json.dumps({'book_version':book_version(c.get()),'policy_version':POLICY_VERSION,
+                       'sources_hash':digest(e.materials(cid))})
+    aid=s.execute('INSERT INTO assets(contact_id,body,content_hash,approved,review,created_at) VALUES(?,?,?,?,?,?)',
+                  (cid,example,digest(example),1,review,time.time()))
     class Offer(SyntheticAI):
         def initial_copy(self,*a,**kw):
             v=super().initial_copy(*a,**kw);v.update(body=BODY.replace('Would a relevant chapter recommendation be useful for a project you have in mind?','Would you like an original short example?'),offered_next_step='example',asset_id=aid,asset_version=1);return v

@@ -1,5 +1,13 @@
 # Evidence-to-email generation (1.3)
 
+## Editorial positioning preview (unreleased)
+
+`contracts.py` now carries `POSITIONING_VERSION=capability-expansion-1` and `PROMPT_VERSION=editorial-prompts-1`. The author-approved position is that a person can direct several AIs to attempt games, tools or complex work beyond current skills: a planning AI proposes, advisor AIs challenge, the person chooses, execution AI builds and different AIs check the running result. This is a method and teaching aim, not a sourced fact about any recipient or a verified student outcome. The same versioned content enters the existing brief, initial, independent review, original asset and reply requests. Neither chapter titles nor the book text changed.
+
+Initial core prose now validates at 80–120 whitespace words. Review evaluates the recipient-specific possibility and the distinction from a single answer or unchecked plan semantically, alongside current quality floors and hard checks. An existing approved asset is available for a new invitation only when its stored review matches the current book/policy version and source snapshot hash. A promised example must still be delivered verbatim before optional chapter/reading guidance. Exact fresh `Nope` is a refusal; a different sentence such as `No, I don't have Kindle Unlimited` is not rejected by that word alone.
+
+The content and prompt versions are included in draft/review binding. A later deployment must explicitly redraft or recheck old unsent drafts; sent history is immutable. The editorial preview is separate from deployment and requires author review of the exact source commit and artifact hashes before any release decision.
+
 The existing Engine owns one pipeline:
 
 1. Research/reverify fetches the same bounded official owner pages as before. `evidence_sources` stores immutable IDs, URL, retrieval time, original page hash, selected literal context and context hash. Defaults: 4000 characters per source, 8000 per contact, 48000 per research task; at most two source pages per candidate. Limits are Config fields with enforced ranges. Writing/reply tasks never fetch pages or inbound links.

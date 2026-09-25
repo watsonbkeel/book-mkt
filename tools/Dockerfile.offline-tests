@@ -1,0 +1,5 @@
+FROM book-reader-outreach:1.3.2
+USER root
+COPY requirements*.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements-dev.txt
+USER outreach

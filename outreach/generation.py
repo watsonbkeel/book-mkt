@@ -1,7 +1,7 @@
 """Versioned generation and review used by the existing Engine entry points."""
 import json,time
 from email.utils import make_msgid
-from .contracts import COPY_FIELDS,CONTRACT,POLICY_VERSION,BOOK_FACTS,book_facts,book_version,ku_active,quality_floor,validate_copy,framed,review_result
+from .contracts import COPY_FIELDS,CONTRACT,POLICY_VERSION,POSITIONING_VERSION,PROMPT_VERSION,AUTHOR_POSITIONING,BOOK_FACTS,book_facts,book_version,ku_active,quality_floor,validate_copy,framed,review_result
 from .profiles import Profiles,digest
 from .evidence import sources,validate_brief
 from .limits import chain,checkpoint
@@ -17,7 +17,15 @@ class Generation:
         if offer.get('asset_id') and not any(r['id']==offer['asset_id'] for r in rows):
             promised=self.store.one('SELECT * FROM assets WHERE contact_id=? AND id=? AND approved=1',(cid,offer['asset_id']))
             if promised:rows.append(promised)
-        return rows
+        try:source_hash=digest(self.materials(cid))
+        except ValueError:return []
+        current_book=book_version(self.config.get())
+        def current(row):
+            try:review=json.loads(row['review'] or '{}')
+            except (TypeError,ValueError):return False
+            return (review.get('book_version')==current_book and review.get('policy_version')==POLICY_VERSION
+                    and review.get('sources_hash')==source_hash)
+        return [row for row in rows if current(row)]
     def binding(self,row,db=None):
         def all(sql,args=()):return [dict(x) for x in db.execute(sql,args).fetchall()] if db else self.store.all(sql,args)
         c=all('SELECT * FROM contacts WHERE id=?',(row['contact_id'],))[0]
@@ -30,7 +38,7 @@ class Generation:
         profile=all('SELECT p.id,p.version,p.config,t.task FROM profiles p JOIN task_routes t ON p.id=t.profile_id WHERE t.task IN ('+','.join('?' for _ in tasks)+') ORDER BY t.task',tasks)
         inbound=all("SELECT id,new_text,raw_hash,kind,auth_result FROM messages WHERE contact_id=? AND direction='inbound' ORDER BY id",(c['id'],)) if row['kind']!='initial' else []
         return digest({'revision':row['revision'],'subject':row['subject'],'body':row['body'],'metadata':row['evidence'],
-            'contract':row['contract_version'],'policy':POLICY_VERSION,'book':book_version(cfg),'sources':ev,'assets':assets,
+            'contract':row['contract_version'],'policy':POLICY_VERSION,'positioning':POSITIONING_VERSION,'prompts':PROMPT_VERSION,'book':book_version(cfg),'sources':ev,'assets':assets,
             'contact':{k:c[k] for k in ('name','email','eligibility','permission_note','evidence_json','verified_at','source_url','fit_excerpt')},
             'profiles':profile,'inbound':inbound,'config':{k:cfg[k] for k in ('sender_name','sender_email','company_name','postal_address','public_url','outbound_mode','outreach_scope','require_dmarc','trusted_authserv_id','max_source_age_days','quality_min_each','quality_min_mean','ku_enrolled_until')},
             'token':c['token']})
@@ -230,7 +238,7 @@ class Generation:
         with chain():return self._create_asset(cid)
     def _create_asset(self,cid):
         c=self.store.contact(cid);rows=self.materials(cid)
-        result,_=self.ai.call('Create an original 40–80 word teaching example of planning with AI and directing building/checking, grounded in supplied work. Not a book excerpt or real customer outcome. JSON {body:string}. No links, commitments or personal facts.',json.dumps({'sources':rows,'book':book_facts(self.config.get())}),purpose='asset')
+        result,_=self.ai.call('Create an original 40–80 word teaching demonstration for this adult reader: one AI proposes a plan, advisor AIs challenge it, the person chooses the approach, execution AI builds, and different AI checks the actual result against tests. Show a plausible project beyond the learner\'s current skills. It is newly written teaching material, not a book excerpt, verified student or customer outcome, or guarantee. Use only supplied source facts about the recipient; keep applications hypothetical. JSON {body:string}. No links, commitments or personal facts.',json.dumps({'sources':rows,'book':book_facts(self.config.get()),'author_approved_positioning':AUTHOR_POSITIONING,'prompt_version':PROMPT_VERSION}),purpose='asset')
         body=result.get('body','');policy_text_guard(body,initial=True)
         if not 40<=len(body.split())<=80:raise ValueError('Example length')
         context={'sources':rows,'book':book_facts(self.config.get()),'asset_type':'Original teaching example, not a quotation or customer result'}

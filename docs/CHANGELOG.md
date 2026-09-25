@@ -1,3 +1,9 @@
+# Unreleased editorial preview
+
+- Versioned author positioning now describes capability expansion through planning, multiple advisor challenges, human choices, execution and independent checks. The same source informs briefs, complete first messages, independent review, approved teaching examples and replies.
+- First-message body range is 80–120 words. New positioning/prompt versions invalidate old unsent approvals; old approved examples require current book/policy/source review binding before a new offer.
+- Exact fresh `Nope` triggers suppression without a reply. Synthetic editorial preview tooling uses the existing generation entry points and forbids SMTP/IMAP connections. No production deployment or queue change is part of this preview.
+
 # 1.3.2 (2026-09-25)
 
 - 研究启用时，待核候选由当前 `review` 任务 Profile 提议来源原文摘录，再经现有资格校验器核实；模型结果不能创建许可或修改停发记录。每位候选自动重试间隔7天，全局每5分钟至多安排一位，仍受每日预算约束。
