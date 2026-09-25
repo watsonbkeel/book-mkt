@@ -109,10 +109,10 @@ def test_native_tools_missing_result_or_untrusted_client_tool_fails(tmp_path):
     with pytest.raises(ProviderError):AI(s,c,AnthropicHTTP([r])).discover('operator')
 
 
-def test_native_continuation_cannot_bypass_global_model_budget(tmp_path):
-    s,c=make_env(tmp_path);c.update({'api_key':'x','api_mode':'anthropic','search_mode':'native','daily_api_calls':5})
+def test_native_continuation_cannot_bypass_reserved_model_budget(tmp_path):
+    s,c=make_env(tmp_path);c.update({'api_key':'x','api_mode':'anthropic','search_mode':'native','daily_api_calls':20})
     a=AI(s,c)
-    for _ in range(4):a.reserve('llm')
+    for _ in range(4):a.reserve('llm',purpose='research_continuation')
     h=AnthropicHTTP([tool_response(reason='pause_turn',text='')])
     with pytest.raises(BudgetExceeded):AI(s,c,h).discover('operator')
     assert len(h.calls)==1

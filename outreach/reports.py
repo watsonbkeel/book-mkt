@@ -102,7 +102,17 @@ def schedule_snapshot(store,config,now=None):
     last=max(last or 0,store.state('last_initial_terminal',0)) or None
     cap=window_capacity(c['window_start'],c['window_end'],c['gap_minutes'])
     last_poll=store.state('last_poll_attempt',0)
-    return {'imap_minutes':60,'next_poll_at':last_poll+IMAP_POLL_SECONDS if last_poll else now,
+    a,b=day_bounds(now,c['timezone'])
+    attempted=store.one("SELECT count(*) n FROM messages WHERE kind='initial' AND ((attempt_at>=? AND attempt_at<?) OR (sent_at>=? AND sent_at<?))",(a,b,a,b))['n']
+    accepted=store.one("SELECT count(*) n FROM messages WHERE kind='initial' AND state='accepted' AND sent_at>=? AND sent_at<?",(a,b))['n']
+    used=store.one("SELECT count(*) n FROM api_usage WHERE kind IN ('llm','research') AND created_at>=? AND created_at<?",(a,b))['n']
+    slots=0;candidate=next_window_slot(now,last,c)
+    while candidate<b and slots<max(0,c['daily_limit']-attempted):
+        slots+=1;candidate=next_window_slot(candidate+1,candidate,c)
+    queued=store.one("SELECT count(*) n FROM messages WHERE kind='initial' AND state='queued'")['n']
+    ready=store.one("SELECT count(*) n FROM contacts c WHERE c.state='ready' AND c.historical=0 AND NOT EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=c.id AND m.kind IN ('initial','historical'))")['n']
+    production={'target':c['daily_limit'],'accepted':accepted,'attempted':attempted,'queued':queued,'ready':ready,'remaining_slots':slots,'queue_gap':max(0,min(c['daily_limit']-attempted,slots)-queued),'api_used':used,'api_limit':c['daily_api_calls'],'research_ceiling':max(1,c['daily_api_calls']//4),'initial_ceiling':max(1,c['daily_api_calls']*3//4)}
+    return {'production':production,'imap_minutes':60,'next_poll_at':last_poll+IMAP_POLL_SECONDS if last_poll else now,
             'next_initial_at':next_window_slot(now,last,c),'window_capacity':cap,
             'initial_cap':min(cap,c['daily_limit']),'circuit':circuit(store),
             'imap_review':store.state('imap_review_required',{}),'warnings':config.warnings()}

@@ -26,7 +26,8 @@ class Generation:
         cfg={**DEFAULTS,**(json.loads(cfgrow[0]['value']) if cfgrow else {})}
         ev=all('SELECT id,content_hash,text,active,retrieved_at FROM evidence_sources WHERE contact_id=? ORDER BY id',(c['id'],))
         assets=all('SELECT id,version,content_hash,body,approved,review FROM assets WHERE contact_id=? ORDER BY id',(c['id'],))
-        profile=all('SELECT p.id,p.version,p.config,t.task FROM profiles p JOIN task_routes t ON p.id=t.profile_id ORDER BY t.task')
+        tasks=('brief','compose','review') if row['kind']=='initial' else ('classification','reply','review','compose')
+        profile=all('SELECT p.id,p.version,p.config,t.task FROM profiles p JOIN task_routes t ON p.id=t.profile_id WHERE t.task IN ('+','.join('?' for _ in tasks)+') ORDER BY t.task',tasks)
         inbound=all("SELECT id,new_text,raw_hash,kind,auth_result FROM messages WHERE contact_id=? AND direction='inbound' ORDER BY id",(c['id'],)) if row['kind']!='initial' else []
         return digest({'revision':row['revision'],'subject':row['subject'],'body':row['body'],'metadata':row['evidence'],
             'contract':row['contract_version'],'policy':POLICY_VERSION,'book':BOOK_VERSION,'sources':ev,'assets':assets,
@@ -44,17 +45,17 @@ class Generation:
             metadata={'copy':copy,'brief':brief if brief is not None else json.loads(row['evidence']).get('brief',{}),'contract':CONTRACT}
             db.execute("UPDATE messages SET subject=?,body=?,evidence=?,revision=revision+1,contract_version=?,origin='ai',human_revision=NULL,state='draft',error='' WHERE id=?",(copy['subject'],copy['body'],json.dumps(metadata,ensure_ascii=False),CONTRACT,mid))
         return True
-    def draft_initial(self,cid):
+    def draft_initial(self,cid,*,deferred=False):
         from .limits import chain
-        with chain():return self._draft_initial(cid)
-    def _draft_initial(self,cid):
+        with chain():return self._draft_initial(cid,deferred=deferred)
+    def _draft_initial(self,cid,*,deferred=False):
         c=self.store.contact(cid);cfg=self.config.get()
         if not self.eligible(c,cfg,time.time()) or c['historical'] or blocked_mailbox(c['email']):raise ValueError('Contact not eligible')
         with self.store.tx() as db:
             if domain_conflict(db,c['email_domain'],cid,time.time(),cfg['domain_cooldown_days']):raise ValueError('Domain cooldown')
             if db.execute("SELECT 1 FROM messages WHERE contact_id=? AND direction='outbound' AND kind IN ('initial','historical')",(cid,)).fetchone():raise ValueError('Initial already exists; use redraft')
             mid=db.execute("INSERT INTO messages(contact_id,direction,kind,subject,body,recipient,sender,message_id,state,created_at,origin,contract_version) VALUES(?,'outbound','initial','Pending evidence brief','',?,?,?,'draft',?,'ai',?)",(cid,c['email'],cfg['sender_email'],make_msgid(),time.time(),CONTRACT)).lastrowid
-        self.redraft(mid)
+        if not deferred:self.redraft(mid)
         return mid
     def fail(self,mid,revision,reason):
         self.store.execute("UPDATE messages SET state='held',error=?,human_revision=NULL WHERE id=? AND revision=? AND attempt_at IS NULL AND state IN ('draft','held','queued')",(reason[:400],mid,revision))

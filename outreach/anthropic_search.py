@@ -25,7 +25,7 @@ def messages_call(ai, cfg, key, model, instructions, prompt, usage_id, *, resear
     for turn in range(max_turns):
         if turn:
             checkpoint(request=True)
-            current_id = ai.reserve('llm')
+            current_id = ai.reserve('llm',purpose='research_continuation' if research else cfg.get('task'))
             ai.store.execute('UPDATE api_usage SET model=?,purpose=? WHERE id=?',
                              (model, 'research_continuation', current_id))
         payload = {

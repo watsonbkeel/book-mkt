@@ -48,7 +48,7 @@ def test_send_rechecks_every_binding(env,change):
     if change=='subject':s.update_message(mid,subject='changed')
     elif change=='source':s.execute("UPDATE evidence_sources SET text=text||' Changed' WHERE contact_id=?",(cid,))
     elif change=='mode':c.update({'outbound_mode':'review'})
-    elif change=='profile':Profiles(c).route({'review':'legacy'})
+    elif change=='profile':s.execute("UPDATE profiles SET version=version+1 WHERE id='legacy'")
     elif change=='footer':c.update({'postal_address':'Different synthetic office'})
     else:s.update_message(mid,kind='manual')
     assert e.dispatch()=='waiting' and not e.smtp.sent
@@ -326,8 +326,9 @@ def test_cancellation_during_slow_generation_stops_send_and_keeps_permission(env
             worker.running=False
             raise InterruptedError('Synthetic shutdown during provider request')
     e.ai=Cancel();monkeypatch.setattr(worker,'poll_once',lambda:calls.append('poll'))
-    s.job('draft',{'contact_id':cid});worker.tick()
-    assert calls==['poll'] and not e.smtp.sent
+    s.job('draft',{'contact_id':cid})
+    for _ in range(3):worker.tick()
+    assert calls==['poll']*3 and not e.smtp.sent
     assert s.contact(cid)['permission_note']==original
     assert s.one("SELECT state FROM messages WHERE kind='initial'")['state']=='held'
     e.recover();assert s.one('SELECT COUNT(*) n FROM messages')['n']==1

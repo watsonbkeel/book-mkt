@@ -29,7 +29,8 @@ def test_full_worker_cycle_with_fake_external_services(tmp_path,monkeypatch):
                 self.uid+=1;ingest(raw,account_key='fake',uid=self.uid,uidvalidity='1')
             self.waiting=[];store.set_state('imap_last_ok',clock[0]);return {'received':self.uid}
     smtp=SMTP();imap=IMAP();e=Engine(s,c,ai=Model(),smtp=smtp,imap=imap);w=Worker(s,c,tmp_path,engine=e)
-    s.job('draft',{'contact_id':cid});w.tick()
+    s.job('draft',{'contact_id':cid})
+    for _ in range(4):w.tick()
     assert len(smtp.sent)==1
     assert summary(s,c)['initial_accepted']==1
     m=EmailMessage();m['From']='reader@example.com';m['To']='author@example.com';m['Message-ID']='<reader-reply@example.com>';m['In-Reply-To']=smtp.sent[0]['Message-ID'];m['Subject']='Re: project';m.set_content('Yes, interested in a business analysis chapter.')
@@ -47,15 +48,15 @@ def test_full_worker_cycle_with_fake_external_services(tmp_path,monkeypatch):
 
 
 def test_redraft_updates_job_not_message_id(tmp_path):
-    from types import SimpleNamespace
     s=Store(tmp_path/'outreach.sqlite3');s.init();c=Config(s,tmp_path)
-    cid=s.add_contact(name='Synthetic',email='fixture@example.com')
+    cid=s.add_contact(name='Synthetic',email='fixture@example.com',eligibility='consent',permission_note='Synthetic consent')
     with s.tx() as db:
         db.execute("INSERT INTO messages(id,contact_id,direction,kind,subject,body,message_id,state,created_at) VALUES(99,?,'outbound','initial','Synthetic','Synthetic','<test@example.com>','held',0)",(cid,))
     jid=s.job('redraft',{'message_id':99})
-    engine=SimpleNamespace(redraft=lambda mid: False)
+    engine=Engine(s,c,ai=SyntheticAI())
     Worker(s,c,tmp_path,engine=engine).job_once()
     job=s.one('SELECT * FROM jobs WHERE id=?',(jid,))
-    assert job['state']=='done'
-    assert job['result']=='{"result": false}'
-    assert job['finished_at'] is not None
+    assert job['state']=='queued'
+    assert 'brief' in job['result']
+    assert job['finished_at'] is None
+    assert s.message(99)['state']=='held'

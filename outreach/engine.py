@@ -118,7 +118,8 @@ class Engine(Generation):
         a=r.get('answer')
         if not isinstance(a,str) or not 10<len(a)<1800:return None
         policy_text_guard(a);return a
-    def dispatch(self,now=None):
+    def dispatch(self,now=None,*,only_message_id=None,ignore_window=False):
+        if ignore_window and only_message_id is None:raise ValueError('Window override requires one explicit message')
         injected_clock=now is not None
         now=time.time() if now is None else now;cfg=self.config.get()
         if not cfg['sending_enabled'] or self.config.readiness(now,include_reply=False):return 'paused'
@@ -135,7 +136,7 @@ class Engine(Generation):
             last_reply=db.execute("SELECT MAX(COALESCE(sent_at,attempt_at)) FROM messages WHERE kind IN ('reply','manual')").fetchone()[0]
             terminal=db.execute("SELECT value FROM state WHERE key='last_initial_terminal'").fetchone()
             if terminal:last=max(last or 0,float(json.loads(terminal[0])))
-            for raw in db.execute("SELECT * FROM messages WHERE direction='outbound' AND state='queued' ORDER BY CASE WHEN kind IN ('reply','manual') THEN 0 ELSE 1 END,id LIMIT 30").fetchall():
+            for raw in db.execute("SELECT * FROM messages WHERE direction='outbound' AND state='queued' AND (? IS NULL OR id=?) ORDER BY CASE WHEN kind IN ('reply','manual') THEN 0 ELSE 1 END,id LIMIT 30",(only_message_id,only_message_id)).fetchall():
                 row=dict(raw);contact=dict(db.execute('SELECT * FROM contacts WHERE id=?',(row['contact_id'],)).fetchone())
                 if db.execute('SELECT 1 FROM suppressions WHERE email_hash=?',(contact['email_hash'],)).fetchone() or contact['state'] in ('paused','suppressed','deleted'):
                     db.execute("UPDATE messages SET state='cancelled',error='paused/suppressed' WHERE id=?",(row['id'],));continue
@@ -156,7 +157,7 @@ class Engine(Generation):
                         db.execute("UPDATE messages SET state='held',error='同域名已有首封发送/任务，365天内不重复联系' WHERE id=?",(row['id'],));continue
                     if contact['historical'] or not self.eligible(contact,cfg,now):
                         db.execute("UPDATE messages SET state='held',error='发送时来源/许可不再满足' WHERE id=?",(row['id'],));continue
-                    if count>=cfg['daily_limit'] or not initial_due(last,now,cfg['gap_minutes']) or not within_window(now,cfg['timezone'],cfg['window_start'],cfg['window_end']):continue
+                    if count>=cfg['daily_limit'] or not initial_due(last,now,cfg['gap_minutes']) or (not ignore_window and not within_window(now,cfg['timezone'],cfg['window_start'],cfg['window_end'])):continue
                 elif row['kind'] in ('reply','manual'):
                     if row['kind']=='reply' and not cfg['auto_reply_enabled']:continue
                     if row['kind']=='reply' and cfg['require_dmarc']:
@@ -230,4 +231,5 @@ class Engine(Generation):
             if not self.approved(row):self.fail(row['id'],row['revision'],'Worker重启：未完成检查的草稿需显式重做')
         self.store.execute("UPDATE api_usage SET status='failed' WHERE status IN ('reserved','received')")
         self.store.execute("UPDATE messages SET state='uncertain',error='Worker重启前发送未落库；请核查服务商日志，未重发' WHERE state='sending'")
+        self.store.execute("UPDATE jobs SET state='queued',started_at=NULL,result='Worker恢复：继续已保存阶段，不重发SMTP' WHERE state='running' AND kind IN ('draft','redraft') AND json_extract(payload,'$.phase') IS NOT NULL")
         self.store.execute("UPDATE jobs SET state='failed',result='Worker重启，中断任务不自动重跑' WHERE state='running'")

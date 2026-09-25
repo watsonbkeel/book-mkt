@@ -23,15 +23,22 @@ def parse_json(text:str)->dict:
 
 class AI:
     def __init__(self,store,config,http=None):self.store=store;self.config=config;self.http=http or PublicHTTP()
-    def reserve(self,kind):
+    def reserve(self,kind,*,purpose=None):
         now=time.time();c=self.config.get();a,b=day_bounds(now,c['timezone'])
         with self.store.tx() as db:
             total=db.execute("SELECT COUNT(*) FROM api_usage WHERE kind IN ('llm','research') AND created_at>=? AND created_at<?",(a,b)).fetchone()[0]
             specific=db.execute('SELECT COUNT(*) FROM api_usage WHERE kind=? AND created_at>=? AND created_at<?',(kind,a,b)).fetchone()[0]
             if kind in ('llm','research') and total>=c['daily_api_calls']:raise BudgetExceeded('今日模型调用限额已用完')
+            # Reserve the final 25% for classification/replies; research gets at most 25%.
+            # This is a ceiling on competing work, not a separate pool to overspend.
+            if kind=='research' or purpose in ('research_extract','research_continuation'):
+                research_used=db.execute("SELECT count(*) FROM api_usage WHERE (kind='research' OR purpose IN ('research_extract','research_continuation')) AND created_at>=? AND created_at<?",(a,b)).fetchone()[0]
+                if research_used>=max(1,c['daily_api_calls']//4) or total>=max(1,c['daily_api_calls']*3//4):raise BudgetExceeded('研究预算已用完或触及回复保留线；剩余额度保留给写作、审核和回复')
+            elif kind=='llm' and purpose in ('brief','personalization','initial_review','asset','asset_review'):
+                if total>=max(1,c['daily_api_calls']*3//4):raise BudgetExceeded('首信已触及预算保留线；剩余额度保留给分类和回复')
             cap={'research':c['daily_research_calls'],'fetch':c['daily_fetches'],'search':c['daily_research_calls']}.get(kind)
             if cap and specific>=cap:raise BudgetExceeded('今日'+kind+'预算已用完')
-            return db.execute('INSERT INTO api_usage(kind,status,created_at) VALUES(?,?,?)',(kind,'reserved',now)).lastrowid
+            return db.execute('INSERT INTO api_usage(kind,purpose,status,created_at) VALUES(?,?,?,?)',(kind,purpose or '', 'reserved',now)).lastrowid
     def call(self,instructions,prompt,*,research=False,purpose="writing",profile_id=None):
         from .profiles import Profiles, ALIASES, digest
         from .limits import checkpoint
@@ -47,7 +54,7 @@ class AI:
         if not key:raise ProviderError('Selected profile has no configured key; no fallback')
         if research and not profile['native_search']:raise ProviderError('Profile has no declared native search capability')
         checkpoint(request=True)
-        usage_id=self.reserve('research' if research else 'llm');started=time.monotonic()
+        usage_id=self.reserve('research' if research else 'llm',purpose=purpose);started=time.monotonic()
         model=profile['model'];timeout=min(profile['timeout'],checkpoint())
         details={**preview,'requested_parameters':preview['parameters'],'parameters_sent':False,'http_success':False,
                  'reported_model':None,'prompt_hash':digest(instructions),'materials_hash':digest(prompt),

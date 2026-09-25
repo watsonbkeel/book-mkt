@@ -264,6 +264,9 @@ def create_app(data_dir=None,secure_cookie=None):
         elif action=='edit':Engine(store,config).edit(mid,str(d.get('subject','')),str(d.get('body','')))
         elif action in ('recheck','redraft'):
             store.job(action,{'message_id':mid})
+        elif action=='send_once':
+            if d.get('confirmed')!='1' or m['state']!='queued' or not Engine(store,config).approved(m):raise ValueError('须确认且邮件必须已审核通过并排队')
+            store.job('send_once',{'message_id':mid,'confirmed':True})
         elif action=='cancel':
             if m['state'] not in ('draft','queued','held','uncertain'):raise ValueError('已发或正在发送邮件不能取消')
             store.update_message(mid,state='cancelled',notes=note)

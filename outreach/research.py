@@ -60,7 +60,7 @@ class Researcher:
     def __init__(self,store,config,ai,fetcher=None,dns_checker=None):
         self.store=store;self.config=config;self.ai=ai;self.fetcher=fetcher or SourceFetcher();self.dns_checker=dns_checker or MXChecker().check
     def run(self):
-        c=self.config.get();existing=self.store.one("SELECT COUNT(*) AS n FROM contacts WHERE state IN ('ready','queued')")['n']
+        c=self.config.get();existing=self.store.one("SELECT COUNT(*) AS n FROM contacts c WHERE c.state IN ('ready','queued') AND (NOT EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=c.id AND m.kind IN ('initial','historical')) OR EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=c.id AND m.kind='initial' AND m.state IN ('draft','queued')))")['n']
         if self.store.one("SELECT COUNT(*) n FROM contacts WHERE state='candidate'")['n']>=100:return {'added':0,'reason':'待核实候选已达100人，先人工整理，不无限采集'}
         if existing>=c['queue_target']:return {'added':0,'reason':'候选队列已达目标，停止额外搜索'}
         rotation=int(self.store.state('research_rotation',0));persona=list(PERSONAS)[rotation%3]

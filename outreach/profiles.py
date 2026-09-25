@@ -66,21 +66,29 @@ class Profiles:
         if changed_endpoint and not key:raise ValueError('New endpoint requires explicitly supplied new key; old key will not be forwarded')
         if not key and previous:p['secret_ref']=previous['secret_ref']
         if key and len(key)>4096:raise ValueError('Key too long')
+        if previous==p and (not key or key==self.config.secret(previous['secret_ref'])):return
         with self.store.tx() as db:
             if key:db.execute('INSERT INTO secrets VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',(p['secret_ref'],self.config.fernet.encrypt(key.encode())))
             db.execute('INSERT INTO profiles VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET version=excluded.version,config=excluded.config',(pid,old['version']+1 if old else 1,json.dumps(p)))
-            self.invalidate(db)
+            self.invalidate(db,{r[0] for r in db.execute('SELECT task FROM task_routes WHERE profile_id=?',(pid,))})
         self.store.audit('profile_saved',pid)
     @staticmethod
-    def invalidate(db):
-        db.execute("UPDATE messages SET state='held',human_revision=NULL,error='模型配置已变更，请重新检查' WHERE direction='outbound' AND origin='ai' AND state IN ('draft','queued') AND attempt_at IS NULL")
+    def invalidate(db,tasks=None):
+        kinds=[]
+        if tasks is None or set(tasks)&{'brief','compose','review'}:kinds.append('initial')
+        if tasks is None or set(tasks)&{'classification','reply','review','compose'}:kinds.append('reply')
+        if not kinds:return
+        db.execute("UPDATE messages SET state='held',human_revision=NULL,error='相关配置已变更，请重新检查' WHERE direction='outbound' AND origin='ai' AND state IN ('draft','queued') AND attempt_at IS NULL AND kind IN ("+','.join('?' for _ in kinds)+')',kinds)
     def route(self,mapping):
         if set(mapping)-set(TASKS):raise ValueError('Unknown task')
         with self.store.tx() as db:
+            changed=set()
             for task,pid in mapping.items():
                 if not db.execute('SELECT 1 FROM profiles WHERE id=?',(pid,)).fetchone():raise ValueError('Missing profile')
+                old=db.execute('SELECT profile_id FROM task_routes WHERE task=?',(task,)).fetchone()
+                if not old or old[0]!=pid:changed.add(task)
                 db.execute('INSERT INTO task_routes VALUES(?,?) ON CONFLICT(task) DO UPDATE SET profile_id=excluded.profile_id',(task,pid))
-            self.invalidate(db)
+            self.invalidate(db,changed)
     def preview(self,task,profile=None):
         p=profile or self.resolve(task)
         fields={}

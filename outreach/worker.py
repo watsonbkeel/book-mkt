@@ -8,6 +8,7 @@ from .ai import BudgetExceeded,ProviderError
 from .net import NetworkError
 from .reports import status_markdown
 from .timing import IMAP_POLL_SECONDS
+from .pipeline import InitialPipeline,Deferred,StageFailure
 
 class Worker:
     def __init__(self,store,config,data_dir,engine=None):
@@ -33,8 +34,8 @@ class Worker:
             raise
     def job_once(self):
         with self.store.tx() as db:
-            row=db.execute("SELECT * FROM jobs WHERE state='queued' ORDER BY id LIMIT 1").fetchone()
-            if not row:return
+            row=db.execute("SELECT * FROM jobs WHERE state='queued' AND COALESCE(json_extract(payload,'$.not_before'),0)<=? ORDER BY CASE WHEN kind='research' THEN 1 ELSE 0 END,id LIMIT 1",(time.time(),)).fetchone()
+            if not row:return False
             row=dict(row);db.execute("UPDATE jobs SET state='running',started_at=? WHERE id=?",(time.time(),row['id']))
         kind=row['kind'];payload=json.loads(row['payload']);result=None
         try:
@@ -43,22 +44,34 @@ class Worker:
             elif kind=='test_ai':result=self.engine.ai.call('Return JSON only: {"ok":true}','JSON connectivity test; no personal data.')[0]
             elif kind=='poll':result=self.poll_once()
             elif kind=='research':result=Researcher(self.store,self.config,self.engine.ai).run()
+            elif kind=='send_once':
+                mid=int(payload['message_id'])
+                if payload.get('confirmed') is not True:raise StageFailure('未确认单封发送')
+                self.store.audit('operator_single_send',f'message={mid}; window override only')
+                result={'dispatch':self.engine.dispatch(only_message_id=mid,ignore_window=True)}
+                if result['dispatch']!='accepted':raise StageFailure('单封发送未被SMTP接受：'+result['dispatch']+'；请查看邮件/运行状态，不自动重试')
             elif kind=='recheck':result={'approved':self.engine.review_message(int(payload['message_id']))}
             elif kind=='redraft':
                 mid=int(payload['message_id']);message=self.store.message(mid)
-                result={'result':self.engine.redraft_reply(mid) if message and message['kind']=='reply' else self.engine.redraft(mid)}
+                result={'result':self.engine.redraft_reply(mid)} if message and message['kind']=='reply' else InitialPipeline(self.engine).step(row,payload)
             elif kind=='create_asset':result={'asset_id':self.engine.create_asset(int(payload['contact_id']))}
             elif kind=='test_profile':result=self.engine.ai.call('Return JSON {"ok":true}','Explicit profile connection test',purpose='brief',profile_id=payload['profile_id'])[0]
-            elif kind=='draft':result={'message_id':self.engine.draft_initial(int(payload['contact_id']))}
+            elif kind=='draft':result=InitialPipeline(self.engine).step(row,payload)
             elif kind=='verify_contact':result=Researcher(self.store,self.config,self.engine.ai).reverify(int(payload['contact_id']))
             else:raise ValueError('不支持的任务')
+            if isinstance(result,Deferred):
+                phase=result.payload.get('phase','start')
+                self.store.execute("UPDATE jobs SET state='queued',payload=?,result=?,started_at=NULL WHERE id=?",(json.dumps(result.payload),json.dumps({'pending_stage':phase,'not_before':result.payload.get('not_before',0)}),row['id']))
+                return True
+            if isinstance(result,dict) and (result.get('approved') is False or result.get('result') is False):raise StageFailure('审核未通过或生成未完成；请查看邮件详情')
             self.store.execute("UPDATE jobs SET state='done',result=?,finished_at=? WHERE id=?",(json.dumps(result,ensure_ascii=False)[:4000],time.time(),row['id']))
         except Exception as e:
             # Don't persist provider exception strings; they may contain echoed credentials or raw email.
-            result=(type(e).__name__+'：'+str(e)[:250]) if isinstance(e,(BudgetExceeded,ProviderError,NetworkError)) else type(e).__name__+'；任务未完成，详见配置/预算/连接检查。'
+            result=(type(e).__name__+'：'+str(e)[:250]) if isinstance(e,(BudgetExceeded,ProviderError,NetworkError,StageFailure)) else type(e).__name__+'；任务未完成，详见配置/预算/连接检查。'
             if getattr(e,'smtp_code',None):result+=' SMTP状态码：'+str(e.smtp_code)
             self.store.execute("UPDATE jobs SET state='failed',result=?,finished_at=? WHERE id=?",(result,time.time(),row['id']))
             self.store.audit('job_failed',f"job={row['id']}; kind={kind}; {type(e).__name__}")
+        return True
     def tick(self):
         from .limits import chain
         # Real Worker runs in the main thread; hard alarm bounds even a slow socket/read.
@@ -79,25 +92,25 @@ class Worker:
         if cfg['imap_host'] and self.config.secret('imap_password'):
             try:self.poll_once()
             except Exception:pass  # poll_once persisted the failure and the next allowed attempt.
-        self.job_once();cfg=self.config.get()
-        if cfg['auto_reply_enabled']:
-            for m in self.store.all("SELECT id FROM messages WHERE state='new' AND direction='inbound' ORDER BY id LIMIT 3"):
-                try:self.engine.process_inbound(m['id'])
-                except BudgetExceeded:break
-        if cfg['research_enabled'] and now-self.store.state('last_research_attempt',0)>cfg['research_interval_minutes']*60:
-            self.store.set_state('last_research_attempt',now)
-            try:Researcher(self.store,self.config,self.engine.ai).run()
-            except Exception as e:self.store.audit('research_failure',type(e).__name__+'；下一研究周期且预算允许时再尝试')
-        # Draft at most one initial message per tick; models don't run unbounded loops.
-        if cfg['research_enabled']:
-            rows=self.store.all("SELECT c.id FROM contacts c WHERE c.state='ready' AND c.historical=0 AND NOT EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=c.id AND m.kind IN ('initial','historical')) ORDER BY c.id LIMIT 1")
-            for r in rows:
-                try:self.engine.draft_initial(r['id'])
-                except BudgetExceeded:break
-                except Exception as e:self.store.update_contact(r['id'],state='candidate',runtime_error='草稿失败：'+type(e).__name__+'；请检查证据/配置后重做')
-        from .limits import checkpoint
-        checkpoint()
+        # Due mail is dispatched before model work, so slow research cannot starve sends.
         if self.running:self.engine.dispatch()
+        worked=self.job_once();cfg=self.config.get()
+        if not worked and cfg['auto_reply_enabled']:
+            inbound=self.store.one("SELECT id FROM messages WHERE state='new' AND direction='inbound' ORDER BY id LIMIT 1")
+            if inbound:
+                worked=True
+                try:self.engine.process_inbound(inbound['id'])
+                except BudgetExceeded:pass
+        if not worked and cfg['research_enabled']:
+            ready=self.store.one("SELECT c.id FROM contacts c WHERE c.state='ready' AND c.historical=0 AND NOT EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=c.id AND m.kind IN ('initial','historical')) AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.kind='draft' AND j.state IN ('queued','running') AND json_extract(j.payload,'$.contact_id')=c.id) ORDER BY c.id LIMIT 1")
+            if ready:
+                self.store.job('draft',{'contact_id':ready['id']});worked=True
+            elif now-self.store.state('last_research_attempt',0)>cfg['research_interval_minutes']*60:
+                self.store.set_state('last_research_attempt',now)
+                self.store.job('research');worked=True
+        # Dispatch again only if the turn still has time, e.g. a newly approved draft.
+        from .limits import checkpoint
+        if self.running and checkpoint()>10:self.engine.dispatch()
         if now-self.store.state('last_status_write',0)>3600:
             (self.data_dir/'STATUS.md.tmp').write_text(status_markdown(self.store,self.config),encoding='utf-8');os.replace(self.data_dir/'STATUS.md.tmp',self.data_dir/'STATUS.md');self.store.set_state('last_status_write',now)
         if now-self.store.state('last_retention_run',0)>86400:
