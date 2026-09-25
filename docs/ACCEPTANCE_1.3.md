@@ -1,6 +1,6 @@
 # 1.3 local acceptance
 
-Baseline: main `a58f0467d680f09572f929cec3757ffd189e9ed9`, clean working tree. Implemented on `feat/evidence-email-upgrade` without reverting HEAD or using an old ZIP. CODEX_BOOK_MKT_UPGRADE.md wholly replaces the older Reader Studio instruction. Implementation commit is recorded below at delivery; the release manifest records the final packaged commit.
+Baseline: main `a58f0467d680f09572f929cec3757ffd189e9ed9`, clean working tree. Implemented on `feat/evidence-email-upgrade` without reverting HEAD or using an old ZIP. CODEX_BOOK_MKT_UPGRADE.md wholly replaces the older Reader Studio instruction. Implementation commit: `ebc3d9a3435f6b75b160d83cb0153c93f8f1496b`. The release manifest records the final packaged commit (including this acceptance record).
 
 ## Actual verification
 
