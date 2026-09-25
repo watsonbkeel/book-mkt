@@ -154,7 +154,7 @@ class Store:
         if set(kw)-allowed:raise ValueError('未知邮件字段')
         self.execute('UPDATE messages SET '+','.join(k+'=?' for k in kw)+' WHERE id=?',list(kw.values())+[mid])
     def job(self,kind,payload=None):
-        if kind not in {'research','poll','test_smtp','test_imap','test_ai','draft','manual_reply','verify_contact','recheck','redraft','reply_pipeline','test_profile','create_asset','send_once'}:raise ValueError('未知任务')
+        if kind not in {'research','poll','test_smtp','test_imap','test_ai','draft','manual_reply','verify_contact','ai_reverify_contact','recheck','redraft','reply_pipeline','test_profile','create_asset','send_once'}:raise ValueError('未知任务')
         encoded=json.dumps(payload or {},sort_keys=True)
         with self.tx() as c:
             if kind in ('draft','redraft'):

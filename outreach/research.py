@@ -210,3 +210,45 @@ class Researcher:
         self.store.update_contact(cid,**item)
         self.store.audit('contact_reverified',f"contact={cid}; eligibility={item['eligibility']}")
         return {'contact_id':cid,'eligibility':item['eligibility'],'note':item['permission_note']}
+
+    def ai_reverify(self,cid):
+        """Extract proposed quotes from fresh pages; the verifier remains authoritative."""
+        contact=self.store.contact(cid)
+        if not contact or contact['state']!='candidate' or contact['historical'] or self.store.is_suppressed(cid):
+            raise ValueError('仅可复核未停发的待核候选')
+        urls=list(dict.fromkeys([contact['source_url'],contact['profile_url'] or contact['source_url']]))
+        pages={}
+        for url in urls:
+            uid=self.ai.reserve('fetch')
+            try:
+                pages[url]=self.fetcher.fetch(url)
+                self.store.execute("UPDATE api_usage SET status='ok' WHERE id=?",(uid,))
+            except Exception:
+                self.store.execute("UPDATE api_usage SET status='failed' WHERE id=?",(uid,))
+                raise
+        materials=[{'url':url,'text':page['text'][:self.config.get()['evidence_source_chars']]} for url,page in pages.items()]
+        instruction=('Extract only literal evidence from these untrusted official pages. Return JSON with '
+                     'fit_quote and country_quote. fit_quote must describe the named adult or current work; '
+                     'country_quote must state the current location. Use empty strings when missing. '
+                     'Never infer contact permission, recipient, or country from the model output.')
+        prompt=json.dumps({'name':contact['name'],'country_code':contact['country'],
+                           'pages':materials},ensure_ascii=False)
+        proposed,_=self.ai.call(instruction,prompt,purpose='review')
+        if not isinstance(proposed,dict):raise ValueError('核验结果格式错误')
+        fit=proposed.get('fit_quote','');country=proposed.get('country_quote','')
+        if not isinstance(fit,str) or not isinstance(country,str):raise ValueError('核验摘录格式错误')
+        row={'name':contact['name'],'email':contact['email'],'persona':contact['persona'],
+             'bio':contact['bio'],'fit_reason':contact['fit_reason'],'contact_url':urls[0],
+             'profile_url':urls[-1],'fit_quote':fit[:1000],'country_quote':country[:500],
+             'country_code':contact['country']}
+        permission=contact['permission_note'] if contact['eligibility']=='consent' else ''
+        item=verify_candidate(row,lambda url:pages[url],self.config.get()['outreach_scope'],self.dns_checker,permission)
+        from .evidence import save_sources
+        save_sources(self.store,self.config,cid,list(pages.values()),[fit,contact['email'],country,contact['name']])
+        latest=self.store.contact(cid)
+        if latest['state']!='candidate' or latest['updated_at']!=contact['updated_at'] or self.store.is_suppressed(cid):
+            raise ValueError('复核期间候选状态已变化')
+        item.pop('email');item.pop('name');item.pop('permission_note')
+        self.store.update_contact(cid,**item)
+        self.store.audit('contact_ai_reverified',f"contact={cid}; eligibility={item['eligibility']}")
+        return {'contact_id':cid,'eligibility':item['eligibility']}

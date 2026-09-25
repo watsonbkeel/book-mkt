@@ -89,6 +89,69 @@ def test_non_us_contact_needs_permission_then_clears_only_that_gate():
     assert allowed_evidence['qualification']['status'] == 'contactable'
 
 
+def test_ai_reverify_accepts_only_source_backed_quotes_and_never_grants_permission(tmp_path):
+    store=Store(tmp_path/'ai-review.sqlite3');store.init();config=Config(store,tmp_path)
+    config.update({'outreach_scope':'us_business_public'})
+    url='https://educator.example/team/jordan-lee'
+    source=('Jordan Lee leads practical AI literacy workshops for adult educators. '
+            'Email jordan@educator.example. Based in Boston, MA 02110.')
+    cid=store.add_contact(name='Jordan Lee',email='jordan@educator.example',persona='creator',
+                          source_url=url,profile_url=url,country='US',state='candidate',eligibility='review')
+    class Model:
+        proposed={}
+        def reserve(self,kind):return store.execute('INSERT INTO api_usage(kind,status,created_at) VALUES(?,?,?)',(kind,'reserved',time.time()))
+        def call(self,instructions,prompt,*,purpose):
+            assert purpose=='review' and 'permission' in instructions
+            assert 'jordan@educator.example' in prompt
+            return self.proposed,[]
+    class Fetcher:
+        def fetch(self,source_url):return page(source_url,source)
+    model=Model();research=Researcher(store,config,model,Fetcher(),lambda _: {'status':'mx'})
+    model.proposed={'fit_quote':'invented curriculum for children','country_quote':'Based in Boston, MA 02110.'}
+    assert research.ai_reverify(cid)['eligibility']=='review'
+    assert store.contact(cid)['state']=='candidate'
+    model.proposed={'fit_quote':'leads practical AI literacy workshops for adult educators',
+                    'country_quote':'Based in Boston, MA 02110.'}
+    assert research.ai_reverify(cid)['eligibility']=='us_public'
+    assert store.contact(cid)['state']=='ready'
+    assert store.contact(cid)['permission_note'] in (None,'')
+
+
+def test_ai_reverify_non_us_and_suppressed_stay_out_of_queue(tmp_path):
+    store=Store(tmp_path/'ai-review.sqlite3');store.init();config=Config(store,tmp_path)
+    url='https://educator.example/team/jordan-lee'
+    source=('Jordan Lee leads practical AI literacy workshops for adult educators. '
+            'Email jordan@educator.example. Based in Toronto, Canada.')
+    cid=store.add_contact(name='Jordan Lee',email='jordan@educator.example',persona='creator',
+                          source_url=url,profile_url=url,country='CA',state='candidate',eligibility='review')
+    class Model:
+        def reserve(self,kind):return store.execute('INSERT INTO api_usage(kind,status,created_at) VALUES(?,?,?)',(kind,'reserved',time.time()))
+        def call(self,*args,**kwargs):return {'fit_quote':'leads practical AI literacy workshops for adult educators','country_quote':'Based in Toronto, Canada.'},[]
+    class Fetcher:
+        def fetch(self,source_url):return page(source_url,source)
+    research=Researcher(store,config,Model(),Fetcher(),lambda _: {'status':'mx'})
+    assert research.ai_reverify(cid)['eligibility']=='review'
+    assert store.contact(cid)['state']=='candidate'
+    store.suppress(cid,'synthetic refusal')
+    import pytest
+    with pytest.raises(ValueError):research.ai_reverify(cid)
+
+
+def test_worker_schedules_one_ai_reverify_with_persistent_cooldown(tmp_path):
+    store=Store(tmp_path/'worker-review.sqlite3');store.init();config=Config(store,tmp_path)
+    config.update({'research_enabled':True})
+    for index in range(2):
+        store.add_contact(name=f'Candidate {index}',email=f'candidate{index}@example.org',
+                          source_url=f'https://example.org/team/{index}',state='candidate')
+    worker=Worker(store,config,tmp_path)
+    worker._tick()
+    jobs=store.all("SELECT * FROM jobs WHERE kind='ai_reverify_contact'")
+    assert len(jobs)==1
+    cid=json.loads(jobs[0]['payload'])['contact_id']
+    assert store.state(f'ai_reverify_attempt_{cid}',0)>0
+    assert store.state('last_ai_reverify_enqueue',0)>0
+
+
 def test_permission_cannot_override_a_missing_fit_quote(tmp_path):
     store = Store(tmp_path / 'research.sqlite3'); store.init(); config = Config(store, tmp_path)
     source = 'https://adult-ai.example/contact'

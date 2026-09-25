@@ -1,3 +1,9 @@
+# 1.3.2 (2026-09-25)
+
+- 研究启用时，待核候选由当前 `review` 任务 Profile 提议来源原文摘录，再经现有资格校验器核实；模型结果不能创建许可或修改停发记录。每位候选自动重试间隔7天，全局每5分钟至多安排一位，仍受每日预算约束。
+- 对1.3.1升级暂缓、未尝试发送且来源资格仍有效的 AI 首信安排一次独立审核；审核通过才进入现有发送队列。
+- 收件身份、DMARC、Reply-To、退订、敏感请求、第三轮自动回复和 SMTP 结果不确定仍按原有安全规则处理。
+
 # Local pending authorization — candidate qualification
 
 - Change research profile selection to a repeating 6/3/1 split across ten attempts while retaining all thirteen countries, the configured research period, and existing budgets.

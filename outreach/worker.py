@@ -59,6 +59,7 @@ class Worker:
             elif kind=='draft':result=InitialPipeline(self.engine).step(row,payload)
             elif kind=='reply_pipeline':result=ReplyPipeline(self.engine).step(row,payload)
             elif kind=='verify_contact':result=Researcher(self.store,self.config,self.engine.ai).reverify(int(payload['contact_id']))
+            elif kind=='ai_reverify_contact':result=Researcher(self.store,self.config,self.engine.ai).ai_reverify(int(payload['contact_id']))
             else:raise ValueError('不支持的任务')
             if isinstance(result,Deferred):
                 phase=result.payload.get('phase','start')
@@ -106,6 +107,23 @@ class Worker:
             inbound=self.store.one("SELECT id FROM messages WHERE state='new' AND direction='inbound' ORDER BY id LIMIT 1")
             if inbound:
                 self.engine.process_inbound(inbound['id']);worked=True
+        if not worked and cfg['research_enabled']:
+            held=self.store.one("SELECT m.id FROM messages m JOIN contacts c ON c.id=m.contact_id WHERE m.kind='initial' AND m.origin='ai' AND m.state='held' AND m.attempt_at IS NULL AND m.error='1.3.1升级：旧审核与质量门槛须重新检查' AND c.state='ready' AND c.historical=0 AND json_extract(c.evidence_json,'$.qualification.status')='contactable' ORDER BY m.id LIMIT 1")
+            if held:
+                self.store.job('recheck',{'message_id':held['id']})
+                self.store.update_message(held['id'],error='升级草稿已安排独立 AI 重新审核')
+                worked=True
+        if not worked and cfg['research_enabled']:
+            # One candidate per cycle, with a durable per-contact cooldown even on failure.
+            if now-self.store.state('last_ai_reverify_enqueue',0)>=300:
+                for candidate in self.store.all("SELECT id,source_url FROM contacts WHERE state='candidate' AND historical=0 AND source_url LIKE 'https://%' ORDER BY id LIMIT 150"):
+                    cid=candidate['id']
+                    if self.store.is_suppressed(cid) or now-self.store.state(f'ai_reverify_attempt_{cid}',0)<7*86400:continue
+                    self.store.set_state(f'ai_reverify_attempt_{cid}',now)
+                    self.store.set_state('last_ai_reverify_enqueue',now)
+                    self.store.job('ai_reverify_contact',{'contact_id':cid})
+                    worked=True
+                    break
         if not worked and cfg['research_enabled']:
             candidates=self.store.all("SELECT c.* FROM contacts c WHERE c.state='ready' AND c.historical=0 AND json_extract(c.evidence_json,'$.qualification.status')='contactable' AND NOT EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=c.id AND m.kind IN ('initial','historical')) AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.kind='draft' AND j.state IN ('queued','running') AND json_extract(j.payload,'$.contact_id')=c.id) ORDER BY c.id")
             ready=next((c for c in candidates if self.engine.eligible(c,cfg,now)),None)
