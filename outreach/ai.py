@@ -26,16 +26,13 @@ class AI:
     def reserve(self,kind,*,purpose=None):
         now=time.time();c=self.config.get();a,b=day_bounds(now,c['timezone'])
         with self.store.tx() as db:
-            total=db.execute("SELECT COUNT(*) FROM api_usage WHERE kind IN ('llm','research') AND created_at>=? AND created_at<?",(a,b)).fetchone()[0]
+            total=db.execute("SELECT COUNT(*) FROM api_usage WHERE kind IN ('llm','research') AND NOT (kind='llm' AND purpose IN ('classification','reply','reply_review')) AND created_at>=? AND created_at<?",(a,b)).fetchone()[0]
             specific=db.execute('SELECT COUNT(*) FROM api_usage WHERE kind=? AND created_at>=? AND created_at<?',(kind,a,b)).fetchone()[0]
-            if kind in ('llm','research') and total>=c['daily_api_calls']:raise BudgetExceeded('今日模型调用限额已用完')
-            # Reserve the final 25% for classification/replies; research gets at most 25%.
-            # This is a ceiling on competing work, not a separate pool to overspend.
+            if kind in ('llm','research') and not (kind=='llm' and purpose in ('classification','reply','reply_review')) and total>=c['daily_api_calls']:raise BudgetExceeded('今日模型调用限额已用完')
+            # Reply workflow is logged, but excluded from the daily marketing quota.
             if kind=='research' or purpose in ('research_extract','research_continuation'):
                 research_used=db.execute("SELECT count(*) FROM api_usage WHERE (kind='research' OR purpose IN ('research_extract','research_continuation')) AND created_at>=? AND created_at<?",(a,b)).fetchone()[0]
-                if research_used>=max(1,c['daily_api_calls']//4) or total>=max(1,c['daily_api_calls']*3//4):raise BudgetExceeded('研究预算已用完或触及回复保留线；剩余额度保留给写作、审核和回复')
-            elif kind=='llm' and purpose in ('brief','personalization','initial_review','asset','asset_review'):
-                if total>=max(1,c['daily_api_calls']*3//4):raise BudgetExceeded('首信已触及预算保留线；剩余额度保留给分类和回复')
+                if research_used>=min(50,max(1,c['daily_api_calls']//3)):raise BudgetExceeded('研究预算已用完；剩余额度保留给首信写作和审核')
             cap={'research':c['daily_research_calls'],'fetch':c['daily_fetches'],'search':c['daily_research_calls']}.get(kind)
             if cap and specific>=cap:raise BudgetExceeded('今日'+kind+'预算已用完')
             return db.execute('INSERT INTO api_usage(kind,purpose,status,created_at) VALUES(?,?,?,?)',(kind,purpose or '', 'reserved',now)).lastrowid
