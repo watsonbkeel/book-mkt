@@ -1,3 +1,4 @@
+from synthetic import SyntheticAI, full_copy, verdict
 from email.message import EmailMessage
 from datetime import datetime,timezone
 from outreach.db import Store
@@ -15,8 +16,8 @@ def test_full_worker_cycle_with_fake_external_services(tmp_path,monkeypatch):
     c.update({'timezone':'Asia/Hong_Kong','sender_email':'author@example.com','postal_address':'TEST ONLY address','smtp_host':'smtp.example.com','smtp_username':'author@example.com','smtp_password':'test','imap_host':'imap.example.com','imap_username':'author@example.com','imap_password':'test','sending_enabled':True,'auto_reply_enabled':True,'outbound_mode':'automatic','scope_confirmed':True,'sender_auth_confirmed':True,'require_dmarc':False})
     for key in ['smtp_tested','imap_tested','imap_last_ok']:s.set_state(key,clock[0])
     cid=s.add_contact(name='Test Reader',email='reader@example.com',state='ready',eligibility='consent',permission_note='TEST fixture: permission to exercise local fake services')
-    class Model:
-        def initial_copy(self,c):return {'subject':'A practical AI exercise','opening':'Your focus on practical tools caught my attention.','copy_version':2}
+    class Model(SyntheticAI):
+        pass  # Full-prose/evidence contract supplied by SyntheticAI.
         def classify(self,c,text):return {'intent':'interested','chapter':15,'reading_evidence':'','exercise_evidence':'','feedback_evidence':'','feedback_summary':''}
     class SMTP:
         def __init__(self):self.sent=[]

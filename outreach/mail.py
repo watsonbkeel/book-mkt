@@ -216,7 +216,12 @@ def compose_message(row,contact,cfg,now):
         url=cfg['public_url']+'/u/'+contact['token'];msg['List-Unsubscribe']=f'<{url}>, <{unsubscribe}>'
         msg['List-Unsubscribe-Post']='List-Unsubscribe=One-Click'
     else:url='';msg['List-Unsubscribe']='<'+unsubscribe+'>'
+    msg.set_content(render_body(row['body'],contact,cfg))
+    return msg
+
+
+def render_body(body,contact,cfg):
+    url=cfg['public_url']+'/u/'+contact['token'] if cfg['public_url'] else ''
     footer=f"\n\n—\n{cfg['sender_name']} · Author of Use AI to Direct AI\n{cfg.get('company_name','')}\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\n{cfg['postal_address']}\nTo stop these messages, reply STOP."
     if url:footer+=' Or unsubscribe: '+url
-    msg.set_content(row['body'].rstrip()+footer)
-    return msg
+    return body.rstrip()+footer

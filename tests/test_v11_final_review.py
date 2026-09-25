@@ -158,7 +158,7 @@ def test_real_v1_schema_migrates_without_losing_original_records(tmp_path):
     s=Store(path);c=Config(s,tmp_path);c.update({'smtp_password':'fixture-password','max_thread_replies':3,'sending_enabled':True,'auto_reply_enabled':True,'research_enabled':True})
     key=c.key;encrypted=s.one("SELECT value FROM secrets WHERE key='smtp_password'")['value']
     s.init();config=Config(s,tmp_path)
-    assert s.one('SELECT version FROM schema_version')['version']==3
+    assert s.one('SELECT version FROM schema_version')['version']==4
     assert s.contact(1)['token']=='persistent-token' and s.contact(1)['email_domain']=='acme.example'
     assert s.message(1)['subject']=='Original subject' and s.message(1)['body']=='Original body' and s.message(1)['sent_at']==2
     assert s.message(2)['state']=='held' and s.message(2)['body']=='Queued body'

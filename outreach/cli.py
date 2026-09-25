@@ -66,7 +66,7 @@ def main():
     sub=p.add_subparsers(dest='command',required=True)
     init=sub.add_parser('init');init.add_argument('--username',default='admin');init.add_argument('--seed-history',action='store_true')
     reset=sub.add_parser('reset-password');reset.add_argument('--username',default='admin')
-    sub.add_parser('import-history');sub.add_parser('status');sub.add_parser('worker-health');sub.add_parser('pause')
+    history=sub.add_parser('import-history');history.add_argument('--input',type=Path); sub.add_parser('status');sub.add_parser('worker-health');sub.add_parser('pause')
     b=sub.add_parser('backup');b.add_argument('--output',type=Path,required=True)
     re=sub.add_parser('restore');re.add_argument('--input',type=Path,required=True)
     a=p.parse_args();data=(a.data_dir or Path(os.environ.get('OUTREACH_DATA_DIR','./data'))).resolve()
@@ -82,7 +82,7 @@ def main():
             s.execute('DELETE FROM login_attempts')
             print('管理员：'+a.username+'\n一次性显示的登录密码：'+password+'\n请存入密码管理器；不会写入明文配置文件。')
         if a.command=='init' and a.seed_history:print('历史记录导入：',import_history(s))
-    elif a.command=='import-history':print('新增历史联系人：',import_history(s))
+    elif a.command=='import-history':print('新增历史联系人：',import_history(s,a.input))
     elif a.command=='status':
         result=status_markdown(s,c);(data/'STATUS.md').write_text(result);print(result)
     elif a.command=='pause':c.update({'sending_enabled':False,'research_enabled':False,'auto_reply_enabled':False});print('全部自动化已暂停。')

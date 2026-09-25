@@ -1,3 +1,4 @@
+from synthetic import SyntheticAI, full_copy, verdict
 """AI approval gates automatic first-contact sends without external services."""
 import json
 import time
@@ -8,15 +9,13 @@ from outreach.engine import Engine
 from outreach.settings import Config
 
 
-class ReviewAI:
+class ReviewAI(SyntheticAI):
     def __init__(self, approved=True):
         self.approved = approved
 
-    def initial_copy(self, contact):
-        return {'subject': 'A practical AI exercise', 'opening': 'I am reaching out with a book invitation.'}
+    pass  # Full-prose/evidence contract supplied by SyntheticAI.
 
-    def review_initial(self, contact, subject, body):
-        return {'approved': self.approved, 'reason': 'Source claim needs review'}
+    pass  # Full-prose/evidence contract supplied by SyntheticAI.
 
 
 class SMTP:
@@ -54,7 +53,7 @@ def test_ai_approval_queues_and_dispatches(tmp_path):
     mid = engine.draft_initial(cid)
     row = store.message(mid)
     assert row['state'] == 'queued'
-    assert json.loads(row['evidence'])['ai_review']['approved'] is True
+    assert json.loads(store.one('SELECT result FROM reviews WHERE message_id=? ORDER BY id DESC LIMIT 1',(mid,))['result'])['approved'] is True
     assert engine.dispatch() == 'accepted'
     assert len(smtp.sent) == 1
 
@@ -91,10 +90,11 @@ def test_reply_ai_review_gates_queue_and_send(tmp_path,verdict):
     class Reviewer(ReviewAI):
         def review_reply(self,inbound,subject,body):
             if verdict=='error':raise TimeoutError('fixture')
-            return {'approved':verdict,'reason':'fixture decision'}
+            from synthetic import verdict as decision
+            return decision(verdict)
     inbound_id=store.add_message(contact_id=cid,direction='inbound',kind='human',subject='Book question',body='Yes, interested',new_text='Yes, interested',message_id='<inbound@example.com>',state='new')
     smtp=SMTP();engine=Engine(store,config,ai=Reviewer(),smtp=smtp)
-    mid=engine.queue_reply(store.message(inbound_id),store.contact(cid),'Thank you for your interest in the book.')
+    mid=engine.queue_reply(store.message(inbound_id),store.contact(cid),Reviewer().reply_copy({}))
     assert store.message(mid)['state']==('queued' if verdict is True else 'held')
     assert engine.dispatch()==('accepted' if verdict is True else 'waiting')
     assert len(smtp.sent)==int(verdict is True)

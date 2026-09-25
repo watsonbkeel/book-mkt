@@ -51,7 +51,7 @@ class Store:
             c.execute('PRAGMA journal_mode=WAL');c.executescript(SCHEMA)
             c.execute('BEGIN IMMEDIATE')
             r=c.execute('SELECT version FROM schema_version').fetchone()
-            if r and r[0] not in (1,2,3):raise RuntimeError('数据库版本不兼容；先备份，不自动降级。')
+            if r and r[0] not in (1,2,3,4):raise RuntimeError('数据库版本不兼容；先备份，不自动降级。')
             cols={row['name'] for row in c.execute('PRAGMA table_info(contacts)')}
             if 'email_domain' not in cols:c.execute("ALTER TABLE contacts ADD COLUMN email_domain TEXT NOT NULL DEFAULT ''")
             for row in c.execute("SELECT id,email FROM contacts WHERE email_domain=''").fetchall():
@@ -60,7 +60,7 @@ class Store:
             usagecols={row['name'] for row in c.execute('PRAGMA table_info(api_usage)')}
             for col in ('purpose','model'):
                 if col not in usagecols:c.execute(f"ALTER TABLE api_usage ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
-            if not r:c.execute('INSERT INTO schema_version VALUES(3)')
+            if not r:c.execute('INSERT INTO schema_version VALUES(4)')
             elif r[0]==1:
                 cfg=c.execute("SELECT value FROM settings WHERE key='config'").fetchone()
                 if cfg:
@@ -86,6 +86,8 @@ class Store:
                 c.execute("UPDATE jobs SET state='failed',result='v1.2升级取消未完任务；不自动重跑' WHERE state IN ('queued','running')")
                 c.execute('UPDATE schema_version SET version=3')
                 c.execute("INSERT INTO audit(event,detail,created_at) VALUES('schema_upgrade','2→3；暂停自动化；保存旧时区/窗口/UID/密钥/发送记录',?)", (time.time(),))
+            from .migration4 import migrate
+            migrate(c, bool(r and r[0] < 4))
             c.commit()
             columns={row['name'] for row in c.execute('PRAGMA table_info(messages)')}
             if 'new_text' not in columns:c.execute("ALTER TABLE messages ADD COLUMN new_text TEXT NOT NULL DEFAULT ''")
@@ -114,7 +116,7 @@ class Store:
         self.execute('INSERT INTO audit(event,detail,created_at) VALUES(?,?,?)',(event,str(detail)[:1200],time.time()))
     def add_contact(self,*,name,email,**kw):
         email=normalize_email(email);now=time.time()
-        allowed={'persona','bio','fit_reason','source_url','source_excerpt','profile_url','fit_excerpt','country','country_excerpt','evidence_json','verified_at','eligibility','permission_note','state','historical','interested','reading_started','exercise_tried','feedback_received','feedback_summary'}
+        allowed={'persona','bio','fit_reason','source_url','source_excerpt','profile_url','fit_excerpt','country','country_excerpt','evidence_json','verified_at','eligibility','permission_note','state','historical','interested','reading_started','exercise_tried','feedback_received','feedback_summary','runtime_error'}
         if set(kw)-allowed:raise ValueError('未知候选字段')
         data={'email':email,'email_hash':email_hash(email),'email_domain':email.rsplit('@',1)[-1],'name':str(name)[:160],'token':secrets.token_urlsafe(32),'created_at':now,'updated_at':now,**kw}
         with self.tx() as c:
@@ -125,7 +127,7 @@ class Store:
     def contacts(self):return self.all('SELECT * FROM contacts ORDER BY id')
     def contact(self,cid):return self.one('SELECT * FROM contacts WHERE id=?',(cid,))
     def update_contact(self,cid,**kw):
-        allowed={'name','persona','bio','fit_reason','source_url','source_excerpt','profile_url','fit_excerpt','country','country_excerpt','evidence_json','verified_at','eligibility','permission_note','state','interested','reading_started','exercise_tried','feedback_received','feedback_summary'}
+        allowed={'name','persona','bio','fit_reason','source_url','source_excerpt','profile_url','fit_excerpt','country','country_excerpt','evidence_json','verified_at','eligibility','permission_note','state','interested','reading_started','exercise_tried','feedback_received','feedback_summary','runtime_error'}
         if set(kw)-allowed:raise ValueError('未知候选字段')
         kw['updated_at']=time.time();self.execute('UPDATE contacts SET '+','.join(k+'=?' for k in kw)+' WHERE id=?',list(kw.values())+[cid])
     def suppress(self,cid,reason):
@@ -149,7 +151,7 @@ class Store:
         if set(kw)-allowed:raise ValueError('未知邮件字段')
         self.execute('UPDATE messages SET '+','.join(k+'=?' for k in kw)+' WHERE id=?',list(kw.values())+[mid])
     def job(self,kind,payload=None):
-        if kind not in {'research','poll','test_smtp','test_imap','test_ai','draft','manual_reply','verify_contact'}:raise ValueError('未知任务')
+        if kind not in {'research','poll','test_smtp','test_imap','test_ai','draft','manual_reply','verify_contact','recheck','redraft','test_profile','create_asset'}:raise ValueError('未知任务')
         encoded=json.dumps(payload or {},sort_keys=True)
         with self.tx() as c:
             active=c.execute("SELECT id FROM jobs WHERE kind=? AND payload=? AND state IN ('queued','running')",(kind,encoded)).fetchone()

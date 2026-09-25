@@ -1,0 +1,67 @@
+{
+  "kind": "real local Chromium navigation and authenticated rendering",
+  "production_access": false,
+  "worker_started": false,
+  "pages": [
+    {
+      "route": "/profiles",
+      "width": 1440,
+      "http_status": 200,
+      "horizontal_overflow": false
+    },
+    {
+      "route": "/settings",
+      "width": 1440,
+      "http_status": 200,
+      "horizontal_overflow": false
+    },
+    {
+      "route": "/contacts/1",
+      "width": 1440,
+      "http_status": 200,
+      "horizontal_overflow": false
+    },
+    {
+      "route": "/messages/1",
+      "width": 1440,
+      "http_status": 200,
+      "horizontal_overflow": false
+    },
+    {
+      "route": "/activity",
+      "width": 1440,
+      "http_status": 200,
+      "horizontal_overflow": false
+    },
+    {
+      "route": "/profiles",
+      "width": 390,
+      "http_status": 200,
+      "horizontal_overflow": false
+    },
+    {
+      "route": "/settings",
+      "width": 390,
+      "http_status": 200,
+      "horizontal_overflow": false
+    },
+    {
+      "route": "/contacts/1",
+      "width": 390,
+      "http_status": 200,
+      "horizontal_overflow": false
+    },
+    {
+      "route": "/messages/1",
+      "width": 390,
+      "http_status": 200,
+      "horizontal_overflow": false
+    },
+    {
+      "route": "/activity",
+      "width": 390,
+      "http_status": 200,
+      "horizontal_overflow": false
+    }
+  ]
+}

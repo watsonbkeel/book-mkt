@@ -1,3 +1,4 @@
+from synthetic import SyntheticAI, full_copy, verdict
 import time, pytest, sqlite3
 from email.message import EmailMessage
 from datetime import datetime,timezone
@@ -12,8 +13,8 @@ def setup(tmp_path):
     return s,c
 
 def contact(s,i=1):return s.add_contact(name='Test Reader',email=f"reader{i}@{'example.com' if i==1 else f'example{i}.com'}",state='ready',eligibility='consent',permission_note='User confirmed permission 2026-09-24',verified_at=time.time(),fit_excerpt='Makes practical tools for work')
-class FakeAI:
-    def initial_copy(self,c):return {'subject':'A practical AI exercise','opening':'Your focus on practical tools caught my attention.','copy_version':2}
+class FakeAI(SyntheticAI):
+    pass  # Full-prose/evidence contract supplied by SyntheticAI.
     def classify(self,c,t):return {'intent':'interested','chapter':15,'reason':'asked to read','reading_evidence':'','exercise_evidence':'','feedback_evidence':'','feedback_summary':''}
 class FakeMail:
     def __init__(self,fail=False):self.sent=[];self.fail=fail

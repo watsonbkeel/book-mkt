@@ -102,7 +102,7 @@ def test_legacy_upgrade_preserves_explicit_schedule_secrets_and_records(env):
     s.set_state('last_poll_attempt',1234);s.set_state('last_initial_terminal',1200)
     s.execute('UPDATE schema_version SET version=2');s.init()
     cfg = c.get()
-    assert s.one('SELECT version FROM schema_version')['version'] == 3
+    assert s.one('SELECT version FROM schema_version')['version'] == 4
     assert cfg['timezone'] == 'Asia/Hong_Kong' and cfg['window_start']=='09:00'
     assert not any(cfg[k] for k in ('sending_enabled','research_enabled','auto_reply_enabled'))
     assert c.secret('api_key') == 'test-key' and s.one("SELECT value FROM secrets WHERE key='api_key'")['value'] == secret
@@ -134,22 +134,17 @@ class CopyHTTP:
         return {'status':'completed','output':[{'type':'message','content':[{'type':'output_text','text':json.dumps(self.result)}]}]}
 
 
-def test_natural_opening_subject_and_value(env):
+def test_natural_full_body_without_legacy_required_phrases(env):
+    from synthetic import seed,full_copy,BODY
+    from outreach.contracts import validate_copy
     s,c=env;c.update({'api_key':'test'})
-    data={'quote':'practical AI workflows','topic':'AI workflows','opening_style':'focus','subject_style':'exercise'}
-    model=AI(s,c,CopyHTTP(data))
-    assert hasattr(model,'initial_copy'), 'initial copy must include individualized subject and opening'
-    contact={'name':'Ada Example','persona':'operator','eligibility':'us_public','fit_excerpt':'I build practical AI workflows for small teams.'}
-    cp=model.initial_copy(contact)
-    assert 'AI workflows' in cp['subject']
-    assert 'Your website describes' not in cp['opening']
-    assert 'practical AI workflows' in cp['opening']
-    from outreach.composition import render_initial
-    body=render_initial(contact,cp)
-    validate_initial(body)
-    assert 'Think → Write → Build → Check' in body
-    assert BOOK_TITLE in body and BOOK_SUBTITLE in body and 'Amazon' in body
-    assert len(body.split())<=120 and 'http' not in body
+    cid=s.add_contact(name='Example Reader',email='reader@example.com');rows=[seed(s,cid)]
+    data=full_copy(rows);model=AI(s,c,CopyHTTP(data))
+    cp=model.initial_copy(s.contact(cid),{'sources':rows})
+    assert validate_copy(cp,rows)['body']==BODY
+    assert BOOK_TITLE in cp['body'] and 'Amazon' in cp['body']
+    assert BOOK_SUBTITLE not in cp['body'] and 'Think → Write → Build → Check' not in cp['body']
+    assert 'Kindle Unlimited' not in cp['body']
 
 
 @pytest.mark.parametrize('field,value',[
@@ -162,8 +157,10 @@ def test_copy_rejects_unsupported_or_injected_slots(env,field,value):
     data={'quote':'practical AI workflows','topic':'AI workflows','opening_style':'focus','subject_style':'exercise'}
     data[field]=value;h=CopyHTTP(data);a=AI(s,c,h)
     assert hasattr(a,'initial_copy')
-    with pytest.raises(ProviderError):a.initial_copy({'name':'Ada','persona':'operator','fit_excerpt':'I build practical AI workflows for small teams.'})
-    assert h.calls==2
+    # Legacy slot parser remains for historical compatibility, never new generation.
+    from outreach.composition import validate_copy_slots
+    with pytest.raises(ValueError):validate_copy_slots({'fit_excerpt':'I build practical AI workflows for small teams.'},data)
+    assert h.calls==0
 
 
 def html_http(pages):
@@ -282,21 +279,19 @@ def test_native_anthropic_pause_loop_bounded(env):
 def test_chat_still_rejects_native_search(env):
     with pytest.raises(ValueError):env[1].update({'api_mode':'chat','search_mode':'native'})
 
-@pytest.mark.parametrize('bad_field,bad_value,error', [
-    ('quote','writing coach','quote length outside allowed bounds'),
-    ('opening_style',{'work':'Your site describes work involving “{quote}”.'},'Unknown wording pattern'),
-    ('topic','developmental editing','topic is not an exact substring'),
-])
-def test_copy_retry_explains_invalid_slots(env, monkeypatch, bad_field, bad_value, error):
-    s,c=env;model=AI(s,c);requests=[]
-    good={'quote':'a writing coach and developmental editor','topic':'writing coach',
-          'opening_style':'work','subject_style':'exercise'}
-    def call(instructions, payload, **kwargs):
-        requests.append(json.loads(payload))
-        return ({**good,bad_field:bad_value} if len(requests)==1 else good), []
-    monkeypatch.setattr(model,'call',call)
-    copy=model.initial_copy({'name':'Example Adult','persona':'creator',
-                             'fit_excerpt':'I’m a writing coach and developmental editor.'})
-    assert len(requests)==2
-    assert error in requests[1]['previous_validation_error']
-    assert copy['quote']==good['quote']
+@pytest.mark.parametrize('reason',['unsupported paraphrase','unbacked example','invented recipient need'])
+def test_review_feedback_allows_only_one_targeted_rewrite(env,reason):
+    from synthetic import seed,SyntheticAI,verdict
+    from outreach.engine import Engine
+    s,c=env;c.update({'outbound_mode':'ai_review'})
+    cid=s.add_contact(name='Example Reader',email='reader@example.com',eligibility='consent',permission_note='Synthetic documented permission');seed(s,cid)
+    class Model(SyntheticAI):
+        feedback=[]
+        def initial_copy(self,contact,brief,revision_feedback=''):
+            self.feedback.append(revision_feedback)
+            return super().initial_copy(contact,brief,revision_feedback)
+        def review_initial(self,*args):return {**verdict(False),'reason':reason}
+    model=Model();mid=Engine(s,c,ai=model).draft_initial(cid)
+    assert model.feedback==['',reason]
+    assert s.message(mid)['state']=='held'
+    assert len(s.all('SELECT * FROM reviews WHERE message_id=?',(mid,)))==2

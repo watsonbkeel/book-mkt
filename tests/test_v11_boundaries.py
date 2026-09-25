@@ -1,3 +1,4 @@
+from synthetic import SyntheticAI, full_copy, verdict
 import json,time,re,smtplib
 from email.message import EmailMessage
 from types import SimpleNamespace
@@ -27,8 +28,8 @@ def contact(s,email='reader@acme.example'):
 def sent(s,cid,stamp=None):
  return s.add_message(contact_id=cid,direction='outbound',kind='initial',subject='Book',body='Book invitation',recipient=s.contact(cid)['email'],sender='author@example.net',message_id=f'<out-{cid}@example.net>',state='accepted',sent_at=time.time() if stamp is None else stamp)
 
-class Model:
- def initial_copy(self,c):return {'subject':'A practical AI exercise','opening':'Your focus on practical tools caught my attention.','copy_version':2}
+class Model(SyntheticAI):
+ pass  # Full-prose/evidence contract supplied by SyntheticAI.
 class Mail:
  def __init__(self):self.sent=[]
  def send(self,m):self.sent.append(m)
@@ -60,7 +61,7 @@ def test_upgrade_from_version1_preserves_keys_uid_and_suppression(env,tmp_path):
  s.set_state('imap_cursor:abc',{'validity':'77','last':100})
  s.execute('UPDATE schema_version SET version=1');c.update({'max_thread_replies':3,'research_enabled':True,'auto_reply_enabled':True})
  s.init();again=Config(s,tmp_path)
- assert s.one('SELECT version FROM schema_version')['version']==3
+ assert s.one('SELECT version FROM schema_version')['version']==4
  assert not any(again.get()[k] for k in ('sending_enabled','auto_reply_enabled','research_enabled'))
  assert again.get()['max_thread_replies']==2 and again.secret('smtp_password')==before
  assert s.contact(cid)['token']==token and s.is_suppressed(cid)
@@ -205,21 +206,19 @@ def test_classification_model_override_and_reasoning_can_be_omitted(env):
  r=AI(s,c,H()).classify({'persona':'operator'},'Interested in a business chapter')
  assert r['intent']=='interested' and s.one('SELECT purpose FROM api_usage')['purpose']=='classification'
 
-def test_personalized_quote_must_really_exist_and_attempts_bounded(env):
- s,c=env;c.update({'api_key':'test'})
- class H:
-  n=0
-  def json(self,*a,**k):self.n+=1;return {'status':'completed','output':[{'type':'message','content':[{'type':'output_text','text':'{"quote":"This invented award is not in the source"}'}]}]}
- h=H()
- with pytest.raises(ProviderError):AI(s,c,h).personalize({'name':'Reader','fit_excerpt':'Build practical workflows and keep human judgement.'})
- assert h.n==2
+def test_brief_quote_must_really_exist(env):
+ from outreach.evidence import validate_brief
+ from synthetic import seed,SyntheticAI
+ s,c=env;cid=contact(s);rows=[seed(s,cid)]
+ brief=SyntheticAI().brief(s.contact(cid),rows);brief['verified_facts'][0]['quote']='This invented award is not in the source'
+ with pytest.raises(ValueError):validate_brief(brief,rows)
 
-def test_short_quote_preserved_literally(env):
- s,c=env;c.update({'api_key':'test'})
- class H:
-  def json(self,*a,**k):return {'status':'completed','output':[{'type':'message','content':[{'type':'output_text','text':'{"quote":"Build practical workflows","topic":"practical workflows","opening_style":"focus","subject_style":"exercise"}'}]}]}
- opener=AI(s,c,H()).personalize({'name':'Reader','fit_excerpt':'Build practical workflows and keep human judgement.'})
- assert 'Build practical workflows' in opener and 'I read' not in opener
+def test_short_source_quote_preserved_literally(env):
+ from outreach.evidence import validate_brief
+ from synthetic import seed,SyntheticAI
+ s,c=env;cid=contact(s);rows=[seed(s,cid)]
+ brief=SyntheticAI().brief(s.contact(cid),rows)
+ assert validate_brief(brief,rows)['verified_facts'][0]['quote']==rows[0]['text']
 
 def test_eight_hour_window_cannot_claim_ten_slots(env):
  from outreach.timing import window_capacity

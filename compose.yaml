@@ -1,7 +1,7 @@
 name: book-reader-outreach
 x-common: &common
   build: .
-  image: book-reader-outreach:1.2.0
+  image: book-reader-outreach:1.3.0
   restart: unless-stopped
   init: true
   environment:

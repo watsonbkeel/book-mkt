@@ -18,8 +18,8 @@ for dir in "$old" "$new"; do
 done
 [[ -f "$old/.env" ]] || { echo '旧目录缺少.env，停止；不要用默认配置猜数据卷。' >&2; exit 2; }
 old_version="$(tr -d '\r\n' < "$old/VERSION")"
-[[ "$old_version" == '1.0.0' || "$old_version" == '1.1.0' ]] || { echo '仅支持1.0.0/1.1.0→1.2.0；其他情况按文档处理。' >&2; exit 2; }
-[[ "$(tr -d '\r\n' < "$new/VERSION")" == '1.2.0' ]] || { echo '新目录必须为1.2.0。' >&2; exit 2; }
+[[ "$old_version" == '1.0.0' || "$old_version" == '1.1.0' || "$old_version" == '1.2.0' ]] || { echo '仅支持1.0.0/1.1.0/1.2.0→1.3.0；其他情况按文档处理。' >&2; exit 2; }
+[[ "$(tr -d '\r\n' < "$new/VERSION")" == '1.3.0' ]] || { echo '新目录必须为1.3.0。' >&2; exit 2; }
 if [[ -f "$new/.env" ]]; then
   cmp -s "$old/.env" "$new/.env" || { echo '新旧.env不同，先核对；不自动覆盖。' >&2; exit 2; }
 else cp "$old/.env" "$new/.env"; fi
@@ -36,13 +36,23 @@ newc config -q;oldc config -q
 newc build
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 backup_dir="$new/backups";mkdir -p "$backup_dir";chmod 700 "$backup_dir"
-name="pre-v1.2-${stamp}.zip";container="reader-upgrade-${stamp}"
+name="pre-v1.3-${stamp}.zip";container="reader-upgrade-${stamp}"
 oldc stop worker web
 # One-off old-code container performs SQLite online backup; no daemon starts.
 oldc run --name "$container" --no-deps -T web python -m outreach.cli backup --output "/tmp/$name"
 docker cp "$container:/tmp/$name" "$backup_dir/$name"
 chmod 600 "$backup_dir/$name"
 [[ -s "$backup_dir/$name" ]] || { echo '备份文件为空，停止升级；旧服务保持停止。' >&2; exit 1; }
+python3 - "$backup_dir/$name" <<'VERIFY'
+import hashlib,json,sys,zipfile
+with zipfile.ZipFile(sys.argv[1]) as z:
+    if set(z.namelist()) != {'outreach.sqlite3','master.key','backup.json'} or len(z.namelist()) != 3 or z.testzip():
+        raise SystemExit('Invalid backup entries/checksum; migration stopped')
+    if any(i.file_size > 500_000_000 for i in z.infolist()):raise SystemExit('Backup too large')
+    meta=json.loads(z.read('backup.json'))
+    if meta.get('format') != 1 or hashlib.sha256(z.read('outreach.sqlite3')).hexdigest() != meta.get('database_sha256') or len(z.read('master.key').strip()) != 44:
+        raise SystemExit('Backup database/key verification failed; migration stopped')
+VERIFY
 docker rm "$container" >/dev/null
 printf '私有升级前备份：%s\n' "$backup_dir/$name"
 # Migration preserves the named volume and master.key, and disables automation.

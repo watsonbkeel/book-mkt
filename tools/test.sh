@@ -3,4 +3,4 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 python -m pytest -q
 python -m compileall -q outreach
-bash -n deploy/setup.sh deploy/backup.sh deploy/upgrade.sh
+for script in deploy/*.sh tools/*.sh; do bash -n "$script"; done

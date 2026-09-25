@@ -26,6 +26,7 @@ SETTING_GROUPS=[
  ('SMTP发信',[('smtp_host','SMTP主机','text'),('smtp_port','端口','number'),('smtp_security','传输加密','security'),('smtp_username','用户名','text'),('smtp_password','应用密码/SMTP密码（留空保留）','password')]),
  ('IMAP收信',[('imap_host','IMAP主机','text'),('imap_port','端口','number'),('imap_security','传输加密','security'),('imap_username','用户名','text'),('imap_password','应用密码/IMAP密码（留空保留）','password'),('imap_mailbox','收取文件夹','text'),('require_dmarc','自动回复要求可信收件服务器的DMARC通过','checkbox'),('trusted_authserv_id','可信Authentication-Results服务器，例如mx.google.com；需提供方保证清理伪造头','text')]),
  ('模型与网页搜索',[('api_base_url','模型API Base URL（一般以/v1结尾）','url'),('api_mode','接口协议','api'),('model','研究/写信模型名','text'),('classification_model','可选：独立分类模型名（同API端点，空则沿用）','text'),('send_reasoning','发送reasoning参数（兼容接口不支持时关闭）','checkbox'),('send_max_tool_calls','发送max_tool_calls参数（网关不支持时关闭）','checkbox'),('native_search_call_limit','单次原生搜索调用上限','number'),('api_key','API Key（留空保留）','password'),('reasoning_effort','Responses推理强度','reasoning'),('search_mode','网页搜索方式','search'),('brave_base_url','Brave API地址（备用方式）','url'),('brave_api_key','Brave API Key（仅备用搜索需要）','password')]),
+ ('证据快照上限',[('evidence_source_chars','单来源原文字符上限','number'),('evidence_contact_chars','单候选原文字符上限','number'),('evidence_task_chars','每次研究保存原文字符上限','number')]),
  ('调度与预算',[('timezone','每日额度统计时区','text'),('daily_limit','首封每日上限（最多10）','number'),('gap_minutes','首封最小间隔分钟（至少61，默认70）','number'),('window_start','首封开始时刻','time'),('window_end','首封结束时刻','time'),('outbound_mode','邮件生成后的处理','mode'),('daily_reply_limit','自动/人工回复每日上限','number'),('reply_gap_minutes','回复之间最小间隔分钟','number'),('daily_thread_replies','每线程滚动24小时自动回复上限','number'),('max_thread_replies','每线程自动回复总上限','number'),('daily_api_calls','每日模型请求总上限（不是金额保证）','number'),('research_interval_minutes','自动研究间隔（分钟）','number'),('daily_research_calls','每日搜索研究请求上限','number'),('daily_fetches','每日来源页面核验上限','number'),('research_batch_size','一次研究最多候选数','number'),('queue_target','待处理候选队列上限','number'),('domain_cooldown_days','相同业务域名首封冷却天数（至少365）','number'),('max_source_age_days','来源核验有效天数','number'),('retention_days','邮件正文保留天数','number')])]
 
 
@@ -73,7 +74,8 @@ def create_app(data_dir=None,secure_cookie=None):
 
     @app.get('/health')
     async def health():
-        store.one('SELECT version FROM schema_version');return {'status':'ok','version':'1.2.0'}
+        from . import __version__
+        store.one('SELECT version FROM schema_version');return {'status':'ok','version':__version__}
     @app.get('/login',response_class=HTMLResponse)
     async def login_get(request:Request):return render(request,'login.html',configured=bool(store.state('admin')))
     @app.post('/login')
@@ -125,6 +127,34 @@ def create_app(data_dir=None,secure_cookie=None):
         old=config.get()
         if any((k.startswith(('smtp_','imap_')) or k in ('sender_email','sender_name','outreach_scope','scope_confirmed','require_dmarc','trusted_authserv_id','timezone','window_start','window_end','gap_minutes')) and v!=old.get(k) for k,v in patch.items()):patch.update(sending_enabled=False,auto_reply_enabled=False)
         config.update(patch);return back('/settings','已保存。密码不回显；更改邮箱配置后须重新测试并启用。')
+    @app.get('/profiles',response_class=HTMLResponse)
+    async def profiles_get(request:Request):
+        require(request)
+        from .profiles import Profiles,TASKS
+        p=Profiles(config)
+        return render(request,'profiles.html',profiles=p.list(),editable_profiles=[{'id':v['id'],'config':{k:val for k,val in v.items() if k not in ('id','version','secret_ref')}} for v in p.list()],routes={r['task']:r['profile_id'] for r in store.all('SELECT * FROM task_routes')},tasks=TASKS,previews=[p.preview(task) for task in TASKS],usage=store.all('SELECT id,model,purpose,status,input_tokens,output_tokens,details FROM api_usage ORDER BY id DESC LIMIT 30'))
+    @app.post('/profiles/save')
+    async def profiles_save(request:Request):
+        d=await form(request)
+        from .profiles import Profiles
+        data=json.loads(str(d.get('config','{}')))
+        Profiles(config).save(str(d.get('id','')),data,str(d.get('key','')))
+        return back('/profiles','已保存；旧草稿待重新检查。参数预览不联网，能力标识不等于提供方确认。')
+    @app.post('/profiles/routes')
+    async def profiles_routes(request:Request):
+        d=await form(request)
+        from .profiles import Profiles,TASKS
+        Profiles(config).route({task:str(d[task]) for task in TASKS})
+        return back('/profiles','任务映射已保存；旧草稿待重新检查。')
+    @app.post('/profiles/test')
+    async def profiles_test(request:Request):
+        d=await form(request)
+        from .profiles import Profiles
+        pid=str(d.get('profile_id',''))
+        if d.get('confirmed')!='1' or pid not in [p['id'] for p in Profiles(config).list()]:raise ValueError('须确认可能计费并选择现有profile')
+        store.job('test_profile',{'profile_id':pid})
+        return back('/activity','显式profile连接测试已入队，可能计费。')
+
     @app.post('/settings/us-schedule')
     async def us_schedule(request:Request):
         data=await form(request)
@@ -137,7 +167,11 @@ def create_app(data_dir=None,secure_cookie=None):
     async def jobs(request:Request):
         d=await form(request);kind=str(d.get('kind',''))
         if kind not in ('test_smtp','test_imap','test_ai','poll','research'):raise ValueError('未知任务')
-        jid=store.job(kind);return back('/activity',f'任务 #{jid} 已入队；由Worker执行。模型/搜索测试可能产生费用。')
+        if kind=='test_ai':
+            if not d.get('profile_id') or d.get('confirmed')!='1':raise ValueError('请在任务模型页明确选择profile并确认可能计费')
+            jid=store.job('test_profile',{'profile_id':str(d['profile_id'])})
+        else:jid=store.job(kind)
+        return back('/activity',f'任务 #{jid} 已入队；由Worker执行。模型/搜索测试可能产生费用。')
     @app.get('/contacts',response_class=HTMLResponse)
     async def contacts(request:Request):
         require(request);conditions=[];args=[];state=request.query_params.get('state','');reply=request.query_params.get('reply','');q=request.query_params.get('q','')[:120]
@@ -181,12 +215,15 @@ def create_app(data_dir=None,secure_cookie=None):
             if store.is_suppressed(cid):raise ValueError('已退订联系人不能用此操作重新激活')
             store.update_contact(cid,eligibility='consent',permission_note=note,state='contacted' if c['historical'] else 'ready')
         elif action=='draft':store.job('draft',{'contact_id':cid})
+        elif action=='asset':store.job('create_asset',{'contact_id':cid})
         elif action=='verify':store.job('verify_contact',{'contact_id':cid})
         elif action=='anonymize':
             store.suppress(cid,'个人资料匿名；保留抑制哈希防再次联系')
             with store.tx() as db:
+                from .evidence import purge_contact
+                purge_contact(db,cid)
                 db.execute("UPDATE contacts SET email=?,name='[已匿名]',bio='',fit_reason='',source_url='',source_excerpt='',profile_url='',fit_excerpt='',country_excerpt='',evidence_json='{}',permission_note='',feedback_summary='',state='deleted' WHERE id=?",(f'deleted-{cid}@redacted.invalid',cid))
-                db.execute("UPDATE messages SET body='[已匿名]',new_text='',wire=NULL,final_body='',subject='[已匿名]',recipient='',sender='',auth_result='',evidence='',notes='' WHERE contact_id=?",(cid,))
+                db.execute("UPDATE messages SET body='[已匿名]',new_text='',wire=NULL,final_body='',subject='[已匿名]',recipient='',sender='',auth_result='',evidence='',notes='',error='' WHERE contact_id=?",(cid,))
         else:raise ValueError('未知操作')
         store.audit('contact_action',f'contact={cid}; action={action}');return back('/contacts/'+str(cid),'操作已记录。')
     @app.get('/outbox',response_class=HTMLResponse)
@@ -209,7 +246,10 @@ def create_app(data_dir=None,secure_cookie=None):
         if not m:raise HTTPException(404)
         c=store.contact(m['contact_id']) if m['contact_id'] else None
         associated=store.all('SELECT * FROM messages WHERE inbound_id=? OR id=? ORDER BY id',(mid,m['inbound_id'] or -1))
-        return render(request,'message.html',m=m,c=c,associated=associated)
+        from .mail import render_body
+        from .contracts import framed
+        preview=render_body(framed(c,m['body']),c,config.get()) if c and m['direction']=='outbound' and m['origin']=='ai' else m['body']
+        return render(request,'message.html',m=m,c=c,preview=preview,associated=associated,reviews=store.all('SELECT * FROM reviews WHERE message_id=? ORDER BY id DESC',(mid,)),revisions=store.all('SELECT * FROM draft_revisions WHERE message_id=? ORDER BY revision DESC',(mid,)),sources=store.all('SELECT * FROM evidence_sources WHERE contact_id=? ORDER BY retrieved_at DESC',(m['contact_id'],)),assets=store.all('SELECT * FROM assets WHERE contact_id=? ORDER BY id',(m['contact_id'],)),model_calls=store.all("SELECT id,purpose,status,details FROM api_usage WHERE json_extract(details,'$.draft_id')=? OR json_extract(details,'$.inbound_id')=? ORDER BY id",(mid,m['inbound_id'])))
     @app.get('/messages/{mid}/eml')
     async def download_eml(request:Request,mid:int):
         require(request);m=store.message(mid)
@@ -220,21 +260,10 @@ def create_app(data_dir=None,secure_cookie=None):
         d=await form(request);m=store.message(mid)
         if not m:raise HTTPException(404)
         action=d.get('action');note=str(d.get('note',''))[:1000]
-        if action=='approve':
-            if m['state']!='draft':raise ValueError('只能批准待审草稿')
-            if not m['contact_id'] or store.is_suppressed(m['contact_id']):raise ValueError('联系人不可发送')
-            if m['kind']=='initial':validate_initial(m['body'])
-            else:policy_text_guard(m['body'])
-            store.update_message(mid,state='queued',notes='管理员批准草稿')
-        elif action=='edit':
-            if m['direction']!='outbound' or m['state'] not in ('draft','held') or m['attempt_at'] is not None:raise ValueError('只能编辑未尝试提交SMTP的待审/暂停稿')
-            subject=safe_header(str(d.get('subject','')),250);body=str(d.get('body','')).strip()
-            if m['kind']=='initial':
-                validate_initial(body)
-                if subject.lower().startswith(('re:','fwd:','fw:')):raise ValueError('首封不能伪装回复或转发主题')
-            else:policy_text_guard(body)
-            if len(body)<20:raise ValueError('正文过短')
-            store.update_message(mid,subject=subject,body=body,state='draft',error='',notes='管理员编辑，等待再次批准')
+        if action=='approve':Engine(store,config).approve(mid,manual_confirmed=d.get('confirmed')=='1')
+        elif action=='edit':Engine(store,config).edit(mid,str(d.get('subject','')),str(d.get('body','')))
+        elif action in ('recheck','redraft'):
+            store.job(action,{'message_id':mid})
         elif action=='cancel':
             if m['state'] not in ('draft','queued','held','uncertain'):raise ValueError('已发或正在发送邮件不能取消')
             store.update_message(mid,state='cancelled',notes=note)

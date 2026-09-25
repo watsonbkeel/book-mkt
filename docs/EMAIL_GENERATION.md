@@ -1,0 +1,26 @@
+# Evidence-to-email generation (1.3)
+
+The existing Engine owns one pipeline:
+
+1. Research/reverify fetches the same bounded official owner pages as before. `evidence_sources` stores immutable IDs, URL, retrieval time, original page hash, selected literal context and context hash. Defaults: 4000 characters per source, 8000 per contact, 48000 per research task; at most two source pages per candidate. Limits are Config fields with enforced ranges. Writing/reply tasks never fetch pages or inbound links.
+2. A brief call extracts verified_facts `{statement,source_id,quote}`, relevant_work_topic, explicitly hypothetical possible_use_cases and unknowns. Quote membership and source IDs are validated; semantic support is independently checked later. `bio`/`fit_reason` are not supplied as evidence. Missing/stale snapshots hold the draft; explicit research/reverify must fill them.
+3. Compose returns full subject/body plus recipient_claims, book_fact_ids, selected_chapter_ids, offered_next_step, asset_id/version. No fixed opening/benefit/KU/CTA assembly and no generic fallback. Legacy composition helpers remain only for historical tests/compatibility; Engine does not call them.
+4. Existing review_initial/review_reply perform an independent call against raw snapshots, brief, book metadata, assets and the actual complete email including program framing/footer. It inspects undeclared claims too. Source membership is not semantic proof. Hard failures stop; quality dimensions are 0–5 advisory assessments, never response-rate predictions.
+5. Program hard checks run after review: subject/header policy, word count, no arbitrary URLs/addresses, title/Amazon, claim references, chapter/fact IDs, promise/asset consistency and current permission/suppression. Initial draft plus at most one directed rewrite on a reviewer rejection. Transport/budget/missing-evidence/hard-validation failure holds without template fallback.
+6. review leaves a successfully checked draft for explicit human approval; ai_review and automatic queue only after the same checks. automatic is a compatibility enum, not a bypass. Dispatch enforces review binding in every mode.
+
+Core body word count is Python whitespace splitting: target80–120, hard max120, minimum20; replies max220. Greeting, author signature and one fixed identity/postal-address/automated-assistant/opt-out footer are program-owned. Main title and Amazon publication are required; full subtitle remains book metadata but is optional in prose. Four-step slogan and KU are optional. Model-produced body is stored verbatim (not rendered through old patterns); only the final wire copy adds framing. SMTP MIME and final text remain immutable snapshots after submission.
+
+`messages.revision/contract_version/origin/human_revision`, `draft_revisions`, and `reviews` bind subject/body, raw snapshot hashes/content, permission evidence, book/policy version, assets, profile routes/versions, relevant identity/footer config and latest inbound. Calls run outside write transactions. Review commit uses expected revision/binding comparison; late success/failure cannot overwrite a new edit. Edit invalidates approval; `/messages/{id}` offers actual recheck/redraft jobs. Manual approval requires a matching successful AI/hard check. Legacy unreviewed drafts cannot be released by changing mode.
+
+Operational errors use `contacts.runtime_error` or message/job errors, never permission_note. Migration conservatively holds old permission fields starting with the known draft-failure marker, preserving original text rather than inventing consent.
+
+## Invitations and replies
+
+Allowed next steps: chapter_recommendation, discuss_application, example, none. A local original teaching example must first be generated, independently checked and stored as an approved `assets` row. Only then may initial copy offer its exact ID/version. This is not a book excerpt, real customer result, attachment or complete product promise.
+
+Replies use the reply route for interested/question/reading/feedback instead of fixed responses. Classification/refusal/DMARC/thread/Reply-To and two-round limits remain. If the saved example is requested, its exact approved text must appear in the response before any optional book discussion; buying/KU cannot be a prerequisite. Missing/version-mismatched assets hold. A newer human inbound invalidates old generation/review and is checked again at dispatch. An unsent held reply may be redone by updating the same inbound-linked record and advancing revision; its unique key is retained. SMTP-attempted replies are never recreated.
+
+Manual replies are a distinct authenticated action with explicit identity/permission confirmation and program policy gates. An AI row cannot be relabelled manual through redo/approve. Editing a manual row invalidates its human confirmation; it must be explicitly confirmed again. It never bypasses suppression, recipient, rate or uncertainty constraints.
+
+Examples in `docs/evidence_upgrade/generated-examples.json` are emitted by the actual application chain using synthetic model responses, not live models or report-authored promotional claims.

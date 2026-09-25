@@ -1,3 +1,14 @@
+# 1.3.0 — evidence-to-email upgrade (2026-09-25)
+
+- Add bounded research snapshots, evidence briefs, complete model-written subject/body and one directed revision. Preserve actual prose and final MIME.
+- Extend existing initial/reply review across all three modes, version/hash-bound approvals, editable recheck/redraft and explicit manual reply responsibility.
+- Add approved original example assets, saved invitation offers and reply fulfillment; preserve inbound uniqueness, new-inbound invalidation and refusal priority.
+- Add encrypted per-task profiles, protocol effort/thinking payloads, budgets/timeouts and sanitized usage observability. Legacy account/model settings migrate without new provider selection.
+- Separate draft errors from consent. Add schema4 migration,1.2 upgrade/empty-target rollback, privacy retention, mock blind comparison and local browser checks.
+- Preserve thirteen-country adult research, US-public/consent limits, hourly IMAP, send caps, SMTP uncertainty and Tailscale binding.
+
+Previous releases below are historical.
+
 # v1.2.0 — 2026-09-24
 
 - 新安装默认美东08:30–19:30；旧配置保留，新增确认后暂停的预设切换。

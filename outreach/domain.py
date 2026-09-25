@@ -112,5 +112,5 @@ def blocked_mailbox(email):
 def validate_initial(body):
     policy_text_guard(body,initial=True)
     if len(body.split())>120:raise ValueError('首封正文超过120英文词（固定合规页脚另计）')
-    if BOOK_TITLE not in body or BOOK_SUBTITLE not in body or AUTHOR not in body or 'Amazon' not in body:
-        raise ValueError('首封须包含正确完整书名、作者和Amazon出版说明')
+    if BOOK_TITLE not in body or 'Amazon' not in body:
+        raise ValueError('首封主文须包含主标题与Amazon出版说明（作者由程序署名）')
