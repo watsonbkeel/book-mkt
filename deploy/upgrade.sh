@@ -39,8 +39,10 @@ backup_dir="$new/backups";mkdir -p "$backup_dir";chmod 700 "$backup_dir"
 name="pre-v1.3-${stamp}.zip";container="reader-upgrade-${stamp}"
 oldc stop worker web
 # One-off old-code container performs SQLite online backup; no daemon starts.
-oldc run --name "$container" --no-deps -T web python -m outreach.cli backup --output "/tmp/$name"
-docker cp "$container:/tmp/$name" "$backup_dir/$name"
+# /tmp is tmpfs and disappears when the one-off container exits.
+# Keep the credential backup in the private persistent data directory.
+oldc run --name "$container" --no-deps -T web python -m outreach.cli backup --output "/data/backups/$name"
+docker cp "$container:/data/backups/$name" "$backup_dir/$name"
 chmod 600 "$backup_dir/$name"
 [[ -s "$backup_dir/$name" ]] || { echo '备份文件为空，停止升级；旧服务保持停止。' >&2; exit 1; }
 python3 - "$backup_dir/$name" <<'VERIFY'

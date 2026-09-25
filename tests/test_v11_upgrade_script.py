@@ -21,6 +21,8 @@ import sys,os,pathlib,json,zipfile,hashlib
 args=sys.argv[1:]
 with open(os.environ['CALLS'],'a') as f:f.write(json.dumps(args)+'\\n')
 if 'cp' in args:
+ # Stopped containers lose their /tmp tmpfs; only persistent backups survive.
+ if ':/data/backups/' not in args[1]:sys.exit(12)
  if os.environ.get('FAIL_BACKUP')=='1':sys.exit(11)
  with zipfile.ZipFile(args[-1],'w') as z:
   z.writestr('outreach.sqlite3',b'synthetic-snapshot')

@@ -48,4 +48,6 @@ services:
 
 Use `docker compose -f compose.yaml -f rollback.override.yaml config` in OLD source to verify `/data` maps only to the restored directory and WEB_BIND_IP/WEB_PORT are unchanged. Only after approval start that old deployment. No data volume is deleted. Reconcile any SMTP submissions after the backup before approving held mail; uncertain submissions are never retried automatically. Old/new workers must never run simultaneously for the same sender/data.
 
-Mock Docker orchestration tests cover accepted1.2 version, exact .env preservation and backup-failure stop. Actual Docker upgrade/SMTP/IMAP/live API acceptance is still pending.
+Mock Docker orchestration tests cover accepted1.2 version, exact .env preservation and backup-failure stop. The authorized production Docker upgrade was completed on 2026-09-25; see docs/DEPLOYMENT_1.3.md. SMTP delivery and live model/search acceptance remain separate from deployment checks.
+
+The backup is first written to private persistent `/data/backups`, then copied to the new source directory's private `backups` folder. Do not use `/tmp` for this step: Compose mounts it as tmpfs and its contents disappear when the backup container exits.
