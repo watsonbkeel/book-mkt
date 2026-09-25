@@ -1,0 +1,82 @@
+{
+  "title": "Use AI to Direct AI",
+  "author": "Huashan Chen",
+  "asin": "B0HK4KMQF4",
+  "chapter_titles_source": "author-provided v0.14 EPUB; only chapter titles copied",
+  "source_sha256": "80c153539711428cfebac92bebe602be31a325558292cf89e36af62d843c2ec7",
+  "summaries": "Short internal routing summaries, not reproduced chapter text",
+  "chapters": {
+    "1": [
+      "Build Your First AI Project",
+      "Create and open a small local web page, then make one targeted edit; a local result is not a public website."
+    ],
+    "2": [
+      "Stand on the Shoulders of Giants",
+      "Understand AI as support for knowledge, speed, combination, roles and revision, each with limits."
+    ],
+    "3": [
+      "Use AI to Direct AI",
+      "Human decisions, Advisor AI, Builder AI and Reviewer AI; Think → Write → Build → Check."
+    ],
+    "4": [
+      "Let the Advisor AI Ask the Questions, Instead of Making You Write a Long Prompt",
+      "Let the Advisor AI ask the high-impact questions and compare alternatives, rather than inventing a long prompt yourself."
+    ],
+    "5": [
+      "Let AI Write Down the Decisions",
+      "Keep a short Decision Card for the human and a detailed Execution Brief for the Builder AI; do not turn suggestions into decisions."
+    ],
+    "6": [
+      "Let the Builder AI Turn Decisions into Results",
+      "Use the confirmed brief to make a small visible result; pause for changed scope or consequential actions."
+    ],
+    "7": [
+      "Let the Reviewer AI Check What Is Actually Done",
+      "Compare the actual result to the agreed brief; separate supported passes, issues and missing evidence. AI review is not human approval."
+    ],
+    "8": [
+      "Build a Personal Website That Shows Who You Are",
+      "Choose the intended visitor, three authorized project examples and a clear presentation. Do not invent achievements."
+    ],
+    "9": [
+      "Write a Story That Is Truly Yours",
+      "Use AI for drafting and revision while the author decides theme, conflict, character choices and ending."
+    ],
+    "10": [
+      "Build a Web Tool Other People Can Use",
+      "Keep a small first version, clarify whose task it supports, and check data, permissions, failure states and real use."
+    ],
+    "11": [
+      "Build a Web Game That Is Actually Playable",
+      "Define the core loop and minimal rules; separate program checks from real playtesting."
+    ],
+    "12": [
+      "From a Web Prototype to a Published App",
+      "Distinguish browser prototype, platform candidate build, on-device trial and public release; publishing requires human authorization."
+    ],
+    "13": [
+      "Let AI Help You Learn, Not Learn for You",
+      "Keep the learner’s first attempt, own explanation and independent redo. Use progressive hints rather than outsourcing learning."
+    ],
+    "14": [
+      "Let AI Help You Research, Not Just Accept Fluent Answers",
+      "Check primary sources, evidence scope, disagreements and limits. Fluent answers are not evidence."
+    ],
+    "15": [
+      "Use AI to Complete Complex Work Tasks",
+      "Read scattered source materials, distinguish facts from assumptions, clarify the decision a deliverable supports, and preserve evidence across outputs."
+    ],
+    "16": [
+      "Use AI to Navigate Complex Life Decisions",
+      "Make personal constraints and trade-offs explicit; recheck changing facts before purchases or other consequential actions."
+    ],
+    "17": [
+      "Get Multiple AIs to Complete a Large Project Together",
+      "Maintain one Authoritative Version and Current Project Brief; read-only checks may run in parallel, writes stay coordinated, and humans decide acceptance."
+    ],
+    "18": [
+      "Apply the Method to Any New Task",
+      "Choose a workflow proportionate to a new task while keeping Goal, Trade-offs, Acceptance and Accountability with the human."
+    ]
+  }
+}

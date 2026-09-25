@@ -1,0 +1,102 @@
+{
+  "source": "Synthetic test data only; no real outreach events.",
+  "not_sent_by_this_system": true,
+  "contacts": [
+    {
+      "name": "Example Reader 1",
+      "email": "reader1@example.com",
+      "sent_at": "2026-09-20T14:41:00+08:00",
+      "persona": "creator",
+      "interested": false,
+      "notes": "Synthetic historical event used only by tests."
+    },
+    {
+      "name": "Example Reader 2",
+      "email": "reader2@example.com",
+      "sent_at": "2026-09-20T14:41:00+08:00",
+      "persona": "knowledge",
+      "interested": false,
+      "notes": "Synthetic historical event used only by tests."
+    },
+    {
+      "name": "Example Reader 3",
+      "email": "reader3@example.com",
+      "sent_at": "2026-09-20T14:41:00+08:00",
+      "persona": "operator",
+      "interested": false,
+      "notes": "Synthetic historical event used only by tests."
+    },
+    {
+      "name": "Example Reader 4",
+      "email": "reader4@example.com",
+      "sent_at": "2026-09-20T14:41:00+08:00",
+      "persona": "creator",
+      "interested": false,
+      "notes": "Synthetic historical event used only by tests."
+    },
+    {
+      "name": "Example Reader 5",
+      "email": "reader5@example.com",
+      "sent_at": "2026-09-20T14:41:00+08:00",
+      "persona": "knowledge",
+      "interested": false,
+      "notes": "Synthetic historical event used only by tests."
+    },
+    {
+      "name": "Example Reader 6",
+      "email": "reader6@example.com",
+      "sent_at": "2026-09-20T14:41:00+08:00",
+      "persona": "operator",
+      "interested": false,
+      "notes": "Synthetic historical event used only by tests."
+    },
+    {
+      "name": "Example Reader 7",
+      "email": "reader7@example.com",
+      "sent_at": "2026-09-20T14:41:00+08:00",
+      "persona": "creator",
+      "interested": false,
+      "notes": "Synthetic historical event used only by tests."
+    },
+    {
+      "name": "Example Reader 8",
+      "email": "reader8@example.com",
+      "sent_at": "2026-09-20T14:41:00+08:00",
+      "persona": "knowledge",
+      "interested": false,
+      "notes": "Synthetic historical event used only by tests."
+    },
+    {
+      "name": "Example Reader 9",
+      "email": "reader9@example.com",
+      "sent_at": "2026-09-20T14:41:00+08:00",
+      "persona": "operator",
+      "interested": false,
+      "notes": "Synthetic historical event used only by tests."
+    },
+    {
+      "name": "Example Reader 10",
+      "email": "reader10@example.com",
+      "sent_at": "2026-09-20T14:41:00+08:00",
+      "persona": "creator",
+      "interested": false,
+      "notes": "Synthetic historical event used only by tests."
+    },
+    {
+      "name": "Example Reader 11",
+      "email": "reader11@example.com",
+      "sent_at": "2026-09-20T14:41:00+08:00",
+      "persona": "knowledge",
+      "interested": false,
+      "notes": "Synthetic historical event used only by tests."
+    },
+    {
+      "name": "Example Reader 12",
+      "email": "reader12@example.com",
+      "sent_at": "2026-09-20T14:41:00+08:00",
+      "persona": "operator",
+      "interested": false,
+      "notes": "Synthetic historical event used only by tests."
+    }
+  ]
+}

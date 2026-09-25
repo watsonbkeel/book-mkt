@@ -1,0 +1,21 @@
+[Unit]
+Description=Book Reader Outreach Scheduler
+After=network-online.target
+Wants=network-online.target
+[Service]
+User=outreach
+Group=outreach
+WorkingDirectory=/opt/book-reader-outreach
+Environment=OUTREACH_DATA_DIR=/var/lib/book-reader-outreach
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/book-reader-outreach/.venv/bin/python -m outreach.worker
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=120
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/book-reader-outreach
+PrivateTmp=true
+ProtectHome=true
+[Install]
+WantedBy=multi-user.target
