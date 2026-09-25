@@ -44,3 +44,18 @@ def test_full_worker_cycle_with_fake_external_services(tmp_path,monkeypatch):
     m.replace_header('Message-ID','<reader-stop@example.com>');m.set_content('Please stop emailing me.')
     imap.waiting=[m.as_bytes()];clock[0]+=3600;w.tick()
     assert len(smtp.sent)==2 and s.is_suppressed(cid)
+
+
+def test_redraft_updates_job_not_message_id(tmp_path):
+    from types import SimpleNamespace
+    s=Store(tmp_path/'outreach.sqlite3');s.init();c=Config(s,tmp_path)
+    cid=s.add_contact(name='Synthetic',email='fixture@example.com')
+    with s.tx() as db:
+        db.execute("INSERT INTO messages(id,contact_id,direction,kind,subject,body,message_id,state,created_at) VALUES(99,?,'outbound','initial','Synthetic','Synthetic','<test@example.com>','held',0)",(cid,))
+    jid=s.job('redraft',{'message_id':99})
+    engine=SimpleNamespace(redraft=lambda mid: False)
+    Worker(s,c,tmp_path,engine=engine).job_once()
+    job=s.one('SELECT * FROM jobs WHERE id=?',(jid,))
+    assert job['state']=='done'
+    assert job['result']=='{"result": false}'
+    assert job['finished_at'] is not None

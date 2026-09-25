@@ -64,6 +64,9 @@ class Generation:
         row=self.store.message(mid)
         if not row or row['direction']!='outbound' or row['kind']!='initial' or row['attempt_at'] is not None or row['state'] not in ('draft','held','queued'):raise ValueError('Not an editable initial')
         c=self.store.contact(row['contact_id']);revision=row['revision']
+        if not self.store.one('SELECT 1 FROM evidence_sources WHERE contact_id=? AND active=1',(c['id'],)):
+            self.fail(mid,revision,'缺少原始证据快照；请先在联系人页面重新核验来源，再重写邮件。')
+            return False
         try:
             if not self.eligible(c,self.config.get(),time.time()):raise ValueError('Contact no longer eligible')
             rows=self.materials(c['id']);material_hash=digest(rows);binding=self.binding(row)

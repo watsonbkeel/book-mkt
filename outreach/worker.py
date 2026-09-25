@@ -45,8 +45,8 @@ class Worker:
             elif kind=='research':result=Researcher(self.store,self.config,self.engine.ai).run()
             elif kind=='recheck':result={'approved':self.engine.review_message(int(payload['message_id']))}
             elif kind=='redraft':
-                mid=int(payload['message_id']);row=self.store.message(mid)
-                result={'result':self.engine.redraft_reply(mid) if row and row['kind']=='reply' else self.engine.redraft(mid)}
+                mid=int(payload['message_id']);message=self.store.message(mid)
+                result={'result':self.engine.redraft_reply(mid) if message and message['kind']=='reply' else self.engine.redraft(mid)}
             elif kind=='create_asset':result={'asset_id':self.engine.create_asset(int(payload['contact_id']))}
             elif kind=='test_profile':result=self.engine.ai.call('Return JSON {"ok":true}','Explicit profile connection test',purpose='brief',profile_id=payload['profile_id'])[0]
             elif kind=='draft':result={'message_id':self.engine.draft_initial(int(payload['contact_id']))}
