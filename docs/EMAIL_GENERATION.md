@@ -6,6 +6,8 @@
 
 Initial core prose now validates at 80–120 whitespace words. Review evaluates the recipient-specific possibility and the distinction from a single answer or unchecked plan semantically, alongside current quality floors and hard checks. An existing approved asset is available for a new invitation only when its stored review matches the current book/policy version and source snapshot hash. A promised example must still be delivered verbatim before optional chapter/reading guidance. Exact fresh `Nope` is a refusal; a different sentence such as `No, I don't have Kindle Unlimited` is not rejected by that word alone.
 
+A new first message offering a chapter recommendation must bind exactly one chapter ID. The reply must include that same ID and name or number before discussing other chapters. Independent review still checks whether the chapter description is accurate. This closes a mismatch found in the first authorized live preview, where a reply substituted other chapters for the promised one. Unverified comparisons about improved speed or gap detection are rejected by editorial review.
+
 The content and prompt versions are included in draft/review binding. A later deployment must explicitly redraft or recheck old unsent drafts; sent history is immutable. The editorial preview is separate from deployment and requires author review of the exact source commit and artifact hashes before any release decision.
 
 The existing Engine owns one pipeline:

@@ -107,9 +107,9 @@ class MockHTTP:
             offer=data.get('offer',{});asset=next((a for a in data.get('assets',[]) if a['id']==offer.get('asset_id')),None)
             prefix=asset['body']+'\n\n' if asset and 'example' in data['fresh_inbound'].lower() else ''
             result={'subject':'Re: Synthetic reading invitation',
-                    'body':prefix+'Chapter 15 is a starting point for directing and checking an unfamiliar project. You can find Use AI to Direct AI on Amazon: https://www.amazon.com/dp/B0HK4KMQF4',
+                    'body':prefix+'Chapter 10, Build a Web Tool Other People Can Use, is the promised starting point. Chapter 15 can then help with a more complex task. You can find Use AI to Direct AI on Amazon: https://www.amazon.com/dp/B0HK4KMQF4',
                     'recipient_claims':[],'book_fact_ids':['title','chapters','amazon_url'],
-                    'selected_chapter_ids':[15],'offered_next_step':'none','asset_id':None,'asset_version':None}
+                    'selected_chapter_ids':[10,15],'offered_next_step':'none','asset_id':None,'asset_version':None}
         elif 'revision_feedback' in data:
             brief=data['brief'];source=brief['sources'][0];asset=next(iter(brief.get('assets',[])),None)
             topic=brief['relevant_work_topic'];offer='example' if asset else 'chapter_recommendation'
@@ -122,7 +122,7 @@ class MockHTTP:
             result={'subject':f'A possible project for {topic}','body':body,
                     'recipient_claims':[{'statement':brief['verified_facts'][0]['statement'],
                                          'source_id':source['id'],'quote':brief['verified_facts'][0]['quote']}],
-                    'book_fact_ids':['title','publication','method'],'selected_chapter_ids':[],
+                    'book_fact_ids':['title','publication','method'],'selected_chapter_ids':[10] if offer=='chapter_recommendation' else [],
                     'offered_next_step':offer,'asset_id':asset['id'] if asset else None,
                     'asset_version':asset['version'] if asset else None}
         else:

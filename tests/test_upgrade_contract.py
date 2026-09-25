@@ -122,6 +122,24 @@ def test_approved_example_fulfillment_and_missing_asset(env):
     s.execute('DELETE FROM assets WHERE id=?',(aid,))
     assert e.dispatch()=='waiting' and s.message(rid)['state']=='held'
 
+def test_promised_chapter_must_be_unique_and_delivered(env):
+    s,c,cid,e=env
+    rows=e.materials(cid)
+    copy=full_copy(rows)
+    validate_copy(copy,rows,initial=True)
+    multiple=dict(copy,selected_chapter_ids=[10,15])
+    with pytest.raises(ValueError,match='one chapter ID'):
+        validate_copy(multiple,rows,initial=True)
+    mid=e.draft_initial(cid)
+    assert s.message(mid)['state']=='queued'
+    assert e.dispatch()=='accepted'
+    reply=inbound(s,cid,text='Yes, which chapter should I start with?')
+    good=e.ai.reply_copy({})
+    e.validate_fulfillment(reply,good)
+    bad=dict(good,body='Chapter 15 is a starting point.',selected_chapter_ids=[15])
+    with pytest.raises(ValueError,match='Promised chapter'):
+        e.validate_fulfillment(reply,bad)
+
 def test_new_inbound_during_reply_and_held_redo(env):
     s,c,cid,e=env;first=inbound(s,cid,text='Which chapter covers sources?')
     class Race(SyntheticAI):

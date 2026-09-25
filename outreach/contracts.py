@@ -6,9 +6,9 @@ from .domain import BOOK_TITLE,BOOK_SUBTITLE,AUTHOR,BOOK_URL,CHAPTERS,validate_i
 from .profiles import digest
 COPY_FIELDS={'subject','body','recipient_claims','book_fact_ids','selected_chapter_ids','offered_next_step','asset_id','asset_version'}
 CONTRACT=3
-POLICY_VERSION='1.3.2-editorial-1'
+POLICY_VERSION='1.3.2-editorial-2'
 POSITIONING_VERSION='capability-expansion-1'
-PROMPT_VERSION='editorial-prompts-1'
+PROMPT_VERSION='editorial-prompts-2'
 AUTHOR_POSITIONING={
  'version':POSITIONING_VERSION,
  'core':'Use AI to direct other AIs so a person can attempt games, tools and complex work beyond their current skills, with guidance and checks.',
@@ -68,6 +68,8 @@ def validate_copy(value,source_rows,assets=(),initial=True,book=None,ku_allowed=
         if not r or not isinstance(quote,str) or len(quote)<12 or quote not in r['text']:raise ValueError('Unsupported claim reference')
     if initial and not claims:raise ValueError('Initial needs evidence-grounded relevance')
     if value.get('offered_next_step') not in ('chapter_recommendation','discuss_application','example','none'):raise ValueError('Unknown next step')
+    if initial and value.get('offered_next_step')=='chapter_recommendation' and len(chapters)!=1:
+        raise ValueError('A promised chapter recommendation must bind one chapter ID')
     if value.get('offered_next_step')=='example' or value.get('asset_id') is not None:
         asset=next((a for a in assets if a['id']==value.get('asset_id') and a['version']==value.get('asset_version')),None)
         if not asset or not asset['approved'] or digest(asset['body'])!=asset['content_hash']:raise ValueError('Missing approved example/version')

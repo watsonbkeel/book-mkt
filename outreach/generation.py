@@ -5,7 +5,7 @@ from .contracts import COPY_FIELDS,CONTRACT,POLICY_VERSION,POSITIONING_VERSION,P
 from .profiles import Profiles,digest
 from .evidence import sources,validate_brief
 from .limits import chain,checkpoint
-from .domain import blocked_mailbox,policy_text_guard,opt_out,sensitive_request
+from .domain import CHAPTERS,blocked_mailbox,policy_text_guard,opt_out,sensitive_request
 from .safety import domain_conflict
 
 class Generation:
@@ -180,6 +180,13 @@ class Generation:
         return json.loads(row['evidence']).get('copy',{}) if row and row['evidence'] else {}
     def validate_fulfillment(self,inbound,copy):
         offer=self.offer(inbound['contact_id'])
+        if offer.get('offered_next_step')=='chapter_recommendation':
+            selected=offer.get('selected_chapter_ids',[])
+            if len(selected)==1:
+                chapter=selected[0]
+                if chapter not in copy.get('selected_chapter_ids',[]) or not any(
+                    label.lower() in copy['body'].lower() for label in (f'Chapter {chapter}',CHAPTERS[chapter][0])):
+                    raise ValueError('Promised chapter must be delivered before another recommendation')
         if offer.get('offered_next_step')!='example':return
         import re
         if not re.search(r'\b(yes|example|show|send|please|interested)\b',inbound['new_text'],re.I):return

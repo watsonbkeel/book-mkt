@@ -25,5 +25,5 @@ class SyntheticAI:
     def review_initial(self,*args):return verdict(getattr(self,'approved',True))
     def review_reply(self,*args):return verdict(getattr(self,'approved',True))
     def reply_copy(self,context):
-        body='Chapter 15 may help with your question about a concrete project. It describes keeping evidence separate from decisions when working with source materials. The book is published on Amazon: https://www.amazon.com/dp/B0HK4KMQF4'
-        return dict(subject='Re: Book question',body=body,recipient_claims=[],book_fact_ids=['chapters','publication'],selected_chapter_ids=[15],offered_next_step='none',asset_id=None,asset_version=None)
+        body='Chapter 10, Build a Web Tool Other People Can Use, is the promised starting point for a small usable tool. Chapter 15 may then help with a complex project using scattered sources. The book is published on Amazon: https://www.amazon.com/dp/B0HK4KMQF4'
+        return dict(subject='Re: Book question',body=body,recipient_claims=[],book_fact_ids=['chapters','publication'],selected_chapter_ids=[10,15],offered_next_step='none',asset_id=None,asset_version=None)

@@ -3,6 +3,7 @@
 - Versioned author positioning now describes capability expansion through planning, multiple advisor challenges, human choices, execution and independent checks. The same source informs briefs, complete first messages, independent review, approved teaching examples and replies.
 - First-message body range is 80–120 words. New positioning/prompt versions invalidate old unsent approvals; old approved examples require current book/policy/source review binding before a new offer.
 - Exact fresh `Nope` triggers suppression without a reply. Synthetic editorial preview tooling uses the existing generation entry points and forbids SMTP/IMAP connections. No production deployment or queue change is part of this preview.
+- A chapter recommendation now binds one promised chapter and replies must deliver it. Independent review rejects unsupported performance comparisons; the first live preview exposed this promise mismatch and was superseded before editorial delivery.
 
 # 1.3.2 (2026-09-25)
 
