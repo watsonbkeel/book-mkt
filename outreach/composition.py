@@ -74,7 +74,9 @@ def consent_copy(contact):
             'quote':'','topic':'','copy_version':2,'source_url':'','basis':'documented consent; no source claim'}
 
 
-def render_initial(contact, copy):
+def render_initial(contact, copy, config=None):
+    from .contracts import ku_active
+    from .settings import DEFAULTS
     persona = contact.get('persona', 'operator')
     if persona not in PERSONAS:
         raise ValueError('Unknown reader persona')
@@ -84,8 +86,8 @@ def render_initial(contact, copy):
         f"I’m {AUTHOR}, author of {BOOK_TITLE}: {BOOK_SUBTITLE}, published on Amazon.\n\n"
         f"The method—Think → Write → Build → Check—{BENEFITS[persona]}\n\n"
         "Would a chapter recommendation be useful? I'd welcome private thoughts on what works and what remains unclear.\n\n"
-        "Existing Kindle Unlimited members can check access on Amazon. There’s no obligation to buy or post a review.\n\n"
-        f"Best,\n{AUTHOR}"
+        + ("Existing Kindle Unlimited members can check access on Amazon. There’s no obligation to buy or post a review.\n\n" if ku_active(config or DEFAULTS) else "There’s no obligation to buy or post a review.\n\n")
+        + f"Best,\n{AUTHOR}"
     )
     validate_initial(body)
     return body

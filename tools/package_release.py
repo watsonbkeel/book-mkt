@@ -19,7 +19,7 @@ def package(output,include_untracked=False):
     revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     with zipfile.ZipFile(output,'x',zipfile.ZIP_DEFLATED) as z:
         for p in files:z.writestr('book-mkt/'+str(p),(ROOT/p).read_bytes())
-        z.writestr('book-mkt/RELEASE_MANIFEST.json',json.dumps({'source_commit':revision,'working_tree_changes':bool(subprocess.check_output(['git','status','--porcelain'],cwd=ROOT)),'includes_untracked':include_untracked,'version':'1.3.0','database_schema':4,'public_history_contacts':0,'file_count':len(files),'private_data_included':False},indent=2))
+        z.writestr('book-mkt/RELEASE_MANIFEST.json',json.dumps({'source_commit':revision,'working_tree_changes':bool(subprocess.check_output(['git','status','--porcelain'],cwd=ROOT)),'includes_untracked':include_untracked,'version':'1.3.1','database_schema':5,'public_history_contacts':0,'file_count':len(files),'private_data_included':False},indent=2))
     sha=hashlib.sha256(output.read_bytes()).hexdigest();output.with_suffix('.zip.sha256').write_text(sha+'  '+output.name+'\n')
     return {'files':len(files),'source_commit':revision,'sha256':sha,'zip':str(output)}
 if __name__=='__main__':

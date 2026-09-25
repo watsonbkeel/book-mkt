@@ -34,7 +34,8 @@ def test_full_worker_cycle_with_fake_external_services(tmp_path,monkeypatch):
     assert len(smtp.sent)==1
     assert summary(s,c)['initial_accepted']==1
     m=EmailMessage();m['From']='reader@example.com';m['To']='author@example.com';m['Message-ID']='<reader-reply@example.com>';m['In-Reply-To']=smtp.sent[0]['Message-ID'];m['Subject']='Re: project';m.set_content('Yes, interested in a business analysis chapter.')
-    imap.waiting=[m.as_bytes()];clock[0]+=3600;w.tick()
+    imap.waiting=[m.as_bytes()];clock[0]+=3600
+    for _ in range(5):w.tick()
     assert len(smtp.sent)==2
     assert summary(s,c)['human_inbound']==1 and summary(s,c)['reply_accepted']==1
     assert s.contact(cid)['interested']==1 and s.contact(cid)['reading_started']==0

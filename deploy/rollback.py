@@ -18,7 +18,7 @@ def restore_old(archive,target):
         with file.open('xb') as f:os.chmod(file,0o600);f.write(value)
     with sqlite3.connect(target/'outreach.sqlite3') as conn:
         version=conn.execute('SELECT version FROM schema_version').fetchone()[0]
-        if version not in (1,2,3):raise ValueError('Use an actual pre-1.3 backup; no downgrade of schema4')
+        if version not in (1,2,3,4):raise ValueError('Use an actual pre-1.3.1 backup; no downgrade of schema5')
         row=conn.execute("SELECT value FROM settings WHERE key='config'").fetchone()
         cfg=json.loads(row[0]) if row else {}
         cfg.update(sending_enabled=False,research_enabled=False,auto_reply_enabled=False,outbound_mode='review')

@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS messages(
  evidence TEXT NOT NULL DEFAULT '',error TEXT NOT NULL DEFAULT '',account_key TEXT NOT NULL DEFAULT '',uid INTEGER,
  uidvalidity TEXT NOT NULL DEFAULT '',received_at REAL,sent_at REAL,attempt_at REAL,created_at REAL NOT NULL,
  auth_result TEXT NOT NULL DEFAULT '',raw_hash TEXT NOT NULL DEFAULT '',notes TEXT NOT NULL DEFAULT '',wire BLOB,final_body TEXT NOT NULL DEFAULT '',new_text TEXT NOT NULL DEFAULT '');
-CREATE UNIQUE INDEX IF NOT EXISTS one_reply_per_message ON messages(inbound_id) WHERE direction='outbound' AND inbound_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS one_reply_per_message ON messages(inbound_id) WHERE direction='outbound' AND inbound_id IS NOT NULL AND state!='superseded';
 CREATE UNIQUE INDEX IF NOT EXISTS imap_identity ON messages(account_key,uidvalidity,uid) WHERE uid IS NOT NULL;
 CREATE INDEX IF NOT EXISTS message_contact ON messages(contact_id,id);
 CREATE INDEX IF NOT EXISTS message_attempt ON messages(kind,attempt_at);
@@ -51,7 +51,7 @@ class Store:
             c.execute('PRAGMA journal_mode=WAL');c.executescript(SCHEMA)
             c.execute('BEGIN IMMEDIATE')
             r=c.execute('SELECT version FROM schema_version').fetchone()
-            if r and r[0] not in (1,2,3,4):raise RuntimeError('数据库版本不兼容；先备份，不自动降级。')
+            if r and r[0] not in (1,2,3,4,5):raise RuntimeError('数据库版本不兼容；先备份，不自动降级。')
             cols={row['name'] for row in c.execute('PRAGMA table_info(contacts)')}
             if 'email_domain' not in cols:c.execute("ALTER TABLE contacts ADD COLUMN email_domain TEXT NOT NULL DEFAULT ''")
             for row in c.execute("SELECT id,email FROM contacts WHERE email_domain=''").fetchall():
@@ -60,7 +60,7 @@ class Store:
             usagecols={row['name'] for row in c.execute('PRAGMA table_info(api_usage)')}
             for col in ('purpose','model'):
                 if col not in usagecols:c.execute(f"ALTER TABLE api_usage ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
-            if not r:c.execute('INSERT INTO schema_version VALUES(4)')
+            if not r:c.execute('INSERT INTO schema_version VALUES(5)')
             elif r[0]==1:
                 cfg=c.execute("SELECT value FROM settings WHERE key='config'").fetchone()
                 if cfg:
@@ -88,6 +88,9 @@ class Store:
                 c.execute("INSERT INTO audit(event,detail,created_at) VALUES('schema_upgrade','2→3；暂停自动化；保存旧时区/窗口/UID/密钥/发送记录',?)", (time.time(),))
             from .migration4 import migrate
             migrate(c, bool(r and r[0] < 4))
+            if r and r[0]<5:
+                from .migration5 import migrate as migrate5
+                migrate5(c)
             c.commit()
             columns={row['name'] for row in c.execute('PRAGMA table_info(messages)')}
             if 'new_text' not in columns:c.execute("ALTER TABLE messages ADD COLUMN new_text TEXT NOT NULL DEFAULT ''")
@@ -151,7 +154,7 @@ class Store:
         if set(kw)-allowed:raise ValueError('未知邮件字段')
         self.execute('UPDATE messages SET '+','.join(k+'=?' for k in kw)+' WHERE id=?',list(kw.values())+[mid])
     def job(self,kind,payload=None):
-        if kind not in {'research','poll','test_smtp','test_imap','test_ai','draft','manual_reply','verify_contact','recheck','redraft','test_profile','create_asset','send_once'}:raise ValueError('未知任务')
+        if kind not in {'research','poll','test_smtp','test_imap','test_ai','draft','manual_reply','verify_contact','recheck','redraft','reply_pipeline','test_profile','create_asset','send_once'}:raise ValueError('未知任务')
         encoded=json.dumps(payload or {},sort_keys=True)
         with self.tx() as c:
             if kind in ('draft','redraft'):

@@ -110,6 +110,8 @@ def test_third_reply_is_held_before_answer_generation(env):
         def call(self,*a,**kw):pytest.fail('no answer model call after auto-reply cap')
     msg=EmailMessage();msg['From']='reader@acme.example';msg['To']='author@example.net';msg['Subject']='Chapter question';msg['In-Reply-To']=f'<out-{cid}@example.net>';msg['Message-ID']='<incoming3@example.net>';msg.set_content('Which chapter covers collecting source materials?')
     e=Engine(s,c,ai=AI());mid=e.ingest(msg.as_bytes(),account_key='a',uid=1,uidvalidity='1');e.process_inbound(mid)
+    from outreach.worker import Worker
+    assert Worker(s,c,s.path.parent,engine=e).job_once()
     assert s.message(mid)['state']=='human_review' and '轮次' in s.message(mid)['error']
 
 def test_single_thread_automatic_notice_not_counted_as_human(env):
@@ -118,6 +120,8 @@ def test_single_thread_automatic_notice_not_counted_as_human(env):
         def classify(self,*a):return {'intent':'automated','chapter':15}
     msg=EmailMessage();msg['From']='reader@acme.example';msg['In-Reply-To']=f'<out-{cid}@example.net>';msg['Message-ID']='<notice@example.net>';msg.set_content('Away until next month.')
     e=Engine(s,c,ai=AI());mid=e.ingest(msg.as_bytes(),account_key='a',uid=1,uidvalidity='1');e.process_inbound(mid)
+    from outreach.worker import Worker
+    assert Worker(s,c,s.path.parent,engine=e).job_once()
     assert s.message(mid)['kind']=='automated' and summary(s,c)['human_inbound']==0
 
 def test_future_clock_evidence_does_not_authorize_send(env):
@@ -158,7 +162,7 @@ def test_real_v1_schema_migrates_without_losing_original_records(tmp_path):
     s=Store(path);c=Config(s,tmp_path);c.update({'smtp_password':'fixture-password','max_thread_replies':3,'sending_enabled':True,'auto_reply_enabled':True,'research_enabled':True})
     key=c.key;encrypted=s.one("SELECT value FROM secrets WHERE key='smtp_password'")['value']
     s.init();config=Config(s,tmp_path)
-    assert s.one('SELECT version FROM schema_version')['version']==4
+    assert s.one('SELECT version FROM schema_version')['version']==5
     assert s.contact(1)['token']=='persistent-token' and s.contact(1)['email_domain']=='acme.example'
     assert s.message(1)['subject']=='Original subject' and s.message(1)['body']=='Original body' and s.message(1)['sent_at']==2
     assert s.message(2)['state']=='held' and s.message(2)['body']=='Queued body'

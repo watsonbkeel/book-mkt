@@ -92,7 +92,7 @@ def test_reply_ai_review_gates_queue_and_send(tmp_path,verdict):
             if verdict=='error':raise TimeoutError('fixture')
             from synthetic import verdict as decision
             return decision(verdict)
-    inbound_id=store.add_message(contact_id=cid,direction='inbound',kind='human',subject='Book question',body='Yes, interested',new_text='Yes, interested',message_id='<inbound@example.com>',state='new')
+    inbound_id=store.add_message(contact_id=cid,direction='inbound',kind='human',subject='Book question',body='Yes, interested',new_text='Yes, interested',sender='reader@example.com',message_id='<inbound@example.com>',state='new')
     smtp=SMTP();engine=Engine(store,config,ai=Reviewer(),smtp=smtp)
     mid=engine.queue_reply(store.message(inbound_id),store.contact(cid),Reviewer().reply_copy({}))
     assert store.message(mid)['state']==('queued' if verdict is True else 'held')

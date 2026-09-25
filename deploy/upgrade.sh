@@ -18,8 +18,8 @@ for dir in "$old" "$new"; do
 done
 [[ -f "$old/.env" ]] || { echo '旧目录缺少.env，停止；不要用默认配置猜数据卷。' >&2; exit 2; }
 old_version="$(tr -d '\r\n' < "$old/VERSION")"
-[[ "$old_version" == '1.0.0' || "$old_version" == '1.1.0' || "$old_version" == '1.2.0' ]] || { echo '仅支持1.0.0/1.1.0/1.2.0→1.3.0；其他情况按文档处理。' >&2; exit 2; }
-[[ "$(tr -d '\r\n' < "$new/VERSION")" == '1.3.0' ]] || { echo '新目录必须为1.3.0。' >&2; exit 2; }
+[[ "$old_version" == '1.0.0' || "$old_version" == '1.1.0' || "$old_version" == '1.2.0' || "$old_version" == '1.3.0' ]] || { echo '仅支持1.0.0/1.1.0/1.2.0/1.3.0→1.3.1；其他情况按文档处理。' >&2; exit 2; }
+[[ "$(tr -d '\r\n' < "$new/VERSION")" == '1.3.1' ]] || { echo '新目录必须为1.3.1。' >&2; exit 2; }
 if [[ -f "$new/.env" ]]; then
   cmp -s "$old/.env" "$new/.env" || { echo '新旧.env不同，先核对；不自动覆盖。' >&2; exit 2; }
 else cp "$old/.env" "$new/.env"; fi
@@ -36,7 +36,7 @@ newc config -q;oldc config -q
 newc build
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 backup_dir="$new/backups";mkdir -p "$backup_dir";chmod 700 "$backup_dir"
-name="pre-v1.3-${stamp}.zip";container="reader-upgrade-${stamp}"
+name="pre-v1.3.1-${stamp}.zip";container="reader-upgrade-${stamp}"
 oldc stop worker web
 # One-off old-code container performs SQLite online backup; no daemon starts.
 # /tmp is tmpfs and disappears when the one-off container exits.

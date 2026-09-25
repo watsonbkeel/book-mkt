@@ -61,7 +61,7 @@ def test_upgrade_from_version1_preserves_keys_uid_and_suppression(env,tmp_path):
  s.set_state('imap_cursor:abc',{'validity':'77','last':100})
  s.execute('UPDATE schema_version SET version=1');c.update({'max_thread_replies':3,'research_enabled':True,'auto_reply_enabled':True})
  s.init();again=Config(s,tmp_path)
- assert s.one('SELECT version FROM schema_version')['version']==4
+ assert s.one('SELECT version FROM schema_version')['version']==5
  assert not any(again.get()[k] for k in ('sending_enabled','auto_reply_enabled','research_enabled'))
  assert again.get()['max_thread_replies']==2 and again.secret('smtp_password')==before
  assert s.contact(cid)['token']==token and s.is_suppressed(cid)

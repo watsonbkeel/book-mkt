@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 ROOT=Path(__file__).parents[1]
 @pytest.mark.parametrize('fail_backup',[False,True])
-@pytest.mark.parametrize('old_version',['1.0.0','1.1.0','1.2.0'])
+@pytest.mark.parametrize('old_version',['1.0.0','1.1.0','1.2.0','1.3.0'])
 def test_upgrade_stops_before_backup_and_never_removes_volume(tmp_path,fail_backup,old_version):
     old=tmp_path/'old';new=tmp_path/'new';bin=tmp_path/'bin'
     for p in [old,new/'deploy',bin]:p.mkdir(parents=True)
@@ -14,7 +14,7 @@ def test_upgrade_stops_before_backup_and_never_removes_volume(tmp_path,fail_back
     for p in [old,new]:
         (p/'compose.yaml').write_text('name: book-reader-outreach\nservices: {}\n')
     (old/'.env').write_text('WEB_BIND_IP=100.64.0.5\nWEB_PORT=8096\nOUTREACH_SECURE_COOKIE=false\n')
-    (old/'VERSION').write_text(old_version+'\n');(new/'VERSION').write_text('1.3.0\n')
+    (old/'VERSION').write_text(old_version+'\n');(new/'VERSION').write_text('1.3.1\n')
     docker=bin/'docker'
     docker.write_text('''#!/usr/bin/env python3
 import sys,os,pathlib,json,zipfile,hashlib

@@ -74,11 +74,15 @@ def csv_safe(value:object)->str:
     return "'"+s if s.lstrip().startswith(('=','+','-','@','\t','\r')) else s
 
 
-def policy_text_guard(text:str,*,initial:bool=False)->None:
+def policy_text_guard(text:str,*,initial:bool=False,ku_allowed:bool=True)->None:
     if len(text)>4500 or '\x00' in text:raise ValueError('正文过长或含非法字符。')
     if re.search(r'five[ -]?star|5[ -]?star|positive review|leave.{0,12}(?:a |an )?review|gift card|reimburse|money.back|guaranteed|free (?:copy|ebook|e-book|PDF)|click.{0,10}buy|buy now',text,re.I):
         raise ValueError('正文触发评论/奖励/夸大承诺保护，转人工。')
     urls=re.findall(r'https?://[^\s<>]+',text)
+    if not ku_allowed and re.search(r'Kindle Unlimited|\bKU\b',text,re.I):raise ValueError('KU当前不可用，不得提及。')
+    without_urls=re.sub(r'https?://[^\s<>]+','',text)
+    if re.search(r'(?<!\w)www\.[A-Za-z0-9.-]+',without_urls,re.I):raise ValueError('正文只允许固定Amazon图书入口。')
+    if re.search(r'\b(?:mailto:|ftp://|file://)',text,re.I):raise ValueError('正文只允许固定Amazon图书入口。')
     if initial and urls:raise ValueError('首封不放链接。')
     if any(u.rstrip('.,;)')!=BOOK_URL for u in urls):raise ValueError('正文只允许固定Amazon图书入口。')
 

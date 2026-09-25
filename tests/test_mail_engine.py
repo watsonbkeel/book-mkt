@@ -83,6 +83,9 @@ def test_reply_only_to_own_real_thread_and_dedup(setup):
     raw=incoming('reader1@example.com');mid=e.ingest(raw,account_key='a',uid=1,uidvalidity='1')
     e.ingest(raw,account_key='a',uid=1,uidvalidity='1')
     e.process_inbound(mid)
+    from outreach.worker import Worker
+    worker=Worker(s,c,s.path.parent,engine=e)
+    for _ in range(3):assert worker.job_once()
     assert len(s.all("SELECT * FROM messages WHERE direction='inbound'"))==1
     out=s.all("SELECT * FROM messages WHERE kind='reply'");assert len(out)==1
     assert 'https://www.amazon.com/dp/B0HK4KMQF4' in out[0]['body']

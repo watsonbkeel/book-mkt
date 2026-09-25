@@ -10,6 +10,46 @@ from .reports import status_markdown
 from .settings import Config
 from .db import Store
 
+def qualification_report(store,config,now=None):
+    from collections import Counter
+    from .qualification import effective_status,evidence_data,view_reasons
+    from .candidate_lifecycle import PENDING_LIMIT
+    from .domain import day_bounds
+    now=time.time() if now is None else now;cfg=config.get()
+    rows=store.all("SELECT c.*,(SELECT COUNT(*) FROM evidence_sources e WHERE e.contact_id=c.id AND e.active=1) AS active_snapshot_count FROM contacts c WHERE c.historical=0 AND c.state!='deleted'")
+    statuses=Counter();reasons=Counter();countries=Counter()
+    for row in rows:
+        status=effective_status(row,cfg['outreach_scope'],now,cfg['max_source_age_days']);statuses[status]+=1
+        countries[row['country'] or 'unknown']+=1
+        if row['state']!='archived':
+            _,_,qualification=evidence_data(row)
+            reasons.update(x.get('code','unknown') for x in view_reasons(row,qualification,status,cfg['max_source_age_days'],now))
+    a,b=day_bounds(now,cfg['timezone'])
+    usage_rows=store.all('SELECT purpose,kind FROM api_usage WHERE created_at>=? AND created_at<?',(a,b))
+    usage=Counter(r['purpose'] or r['kind'] for r in usage_rows)
+    marketing=sum(r['kind'] in ('llm','research') and not (r['kind']=='llm' and r['purpose'] in ('classification','reply','reply_review')) for r in usage_rows)
+    research=sum(r['kind'] in ('research','search') or r['purpose'] in ('research','research_extract','research_continuation') for r in usage_rows)
+    return {'outreach_scope':cfg['outreach_scope'],'scope_confirmed':cfg['scope_confirmed'],
+            'effective_status':dict(sorted(statuses.items())),'reason_codes':dict(sorted(reasons.items())),
+            'countries':dict(sorted(countries.items())),'pending':{'used':sum(row['state']=='candidate' for row in rows),'limit':PENDING_LIMIT},
+            'model_usage':{'by_task':dict(sorted(usage.items())),'marketing_used':marketing,'marketing_limit':cfg['daily_api_calls'],'research_limit':cfg['daily_research_calls'],'research_used':research}}
+
+def qualification_report_readonly(data):
+    from .settings import DEFAULTS
+    path=data/'outreach.sqlite3'
+    if not path.is_file():raise ValueError('数据库不存在；资格报告不会创建数据库')
+    class ReadOnlyStore:
+        def __init__(self,db):self.db=db
+        def all(self,sql,args=()):return [dict(row) for row in self.db.execute(sql,args).fetchall()]
+    class ReadOnlyConfig:
+        def __init__(self,settings):self.settings=settings
+        def get(self):return self.settings
+    with sqlite3.connect(path.as_uri()+'?mode=ro',uri=True) as db:
+        db.row_factory=sqlite3.Row;db.execute('PRAGMA query_only=ON')
+        row=db.execute("SELECT value FROM settings WHERE key='config'").fetchone()
+        cfg={**DEFAULTS,**(json.loads(row[0]) if row else {})}
+        return qualification_report(ReadOnlyStore(db),ReadOnlyConfig(cfg))
+
 @contextmanager
 def offline_lock(data:Path):
     data.mkdir(parents=True,exist_ok=True)
@@ -66,10 +106,12 @@ def main():
     sub=p.add_subparsers(dest='command',required=True)
     init=sub.add_parser('init');init.add_argument('--username',default='admin');init.add_argument('--seed-history',action='store_true')
     reset=sub.add_parser('reset-password');reset.add_argument('--username',default='admin')
-    history=sub.add_parser('import-history');history.add_argument('--input',type=Path); sub.add_parser('status');sub.add_parser('worker-health');sub.add_parser('pause')
+    history=sub.add_parser('import-history');history.add_argument('--input',type=Path); sub.add_parser('status');sub.add_parser('worker-health');sub.add_parser('pause');sub.add_parser('qualification-report')
     b=sub.add_parser('backup');b.add_argument('--output',type=Path,required=True)
     re=sub.add_parser('restore');re.add_argument('--input',type=Path,required=True)
     a=p.parse_args();data=(a.data_dir or Path(os.environ.get('OUTREACH_DATA_DIR','./data'))).resolve()
+    if a.command=='qualification-report':
+        print(json.dumps(qualification_report_readonly(data),ensure_ascii=False,sort_keys=True));return
     if a.command=='restore':
         print(json.dumps(restore(a.input,data),ensure_ascii=False));return
     s,c,data=environment(data)

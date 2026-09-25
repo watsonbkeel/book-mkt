@@ -1,7 +1,7 @@
 """Versioned generation and review used by the existing Engine entry points."""
 import json,time
 from email.utils import make_msgid
-from .contracts import COPY_FIELDS,CONTRACT,POLICY_VERSION,BOOK_VERSION,BOOK_FACTS,validate_copy,framed,review_result
+from .contracts import COPY_FIELDS,CONTRACT,POLICY_VERSION,BOOK_FACTS,book_facts,book_version,ku_active,quality_floor,validate_copy,framed,review_result
 from .profiles import Profiles,digest
 from .evidence import sources,validate_brief
 from .limits import chain,checkpoint
@@ -30,9 +30,9 @@ class Generation:
         profile=all('SELECT p.id,p.version,p.config,t.task FROM profiles p JOIN task_routes t ON p.id=t.profile_id WHERE t.task IN ('+','.join('?' for _ in tasks)+') ORDER BY t.task',tasks)
         inbound=all("SELECT id,new_text,raw_hash,kind,auth_result FROM messages WHERE contact_id=? AND direction='inbound' ORDER BY id",(c['id'],)) if row['kind']!='initial' else []
         return digest({'revision':row['revision'],'subject':row['subject'],'body':row['body'],'metadata':row['evidence'],
-            'contract':row['contract_version'],'policy':POLICY_VERSION,'book':BOOK_VERSION,'sources':ev,'assets':assets,
+            'contract':row['contract_version'],'policy':POLICY_VERSION,'book':book_version(cfg),'sources':ev,'assets':assets,
             'contact':{k:c[k] for k in ('name','email','eligibility','permission_note','evidence_json','verified_at','source_url','fit_excerpt')},
-            'profiles':profile,'inbound':inbound,'config':{k:cfg[k] for k in ('sender_name','sender_email','company_name','postal_address','public_url','outbound_mode','outreach_scope','require_dmarc','trusted_authserv_id','max_source_age_days')},
+            'profiles':profile,'inbound':inbound,'config':{k:cfg[k] for k in ('sender_name','sender_email','company_name','postal_address','public_url','outbound_mode','outreach_scope','require_dmarc','trusted_authserv_id','max_source_age_days','quality_min_each','quality_min_mean','ku_enrolled_until')},
             'token':c['token']})
     def remember(self,mid,db):
         r=dict(db.execute('SELECT * FROM messages WHERE id=?',(mid,)).fetchone())
@@ -74,7 +74,7 @@ class Generation:
             self.ai.draft_id=mid
             brief=validate_brief(self.ai.brief(c,rows),rows)
             self.store.execute('INSERT INTO briefs(contact_id,material_hash,content,created_at) VALUES(?,?,?,?)',(c['id'],material_hash,json.dumps(brief),time.time()))
-            context={**brief,'sources':rows,'book':BOOK_FACTS,'assets':self.assets(c['id'])}
+            context={**brief,'sources':rows,'book':book_facts(self.config.get()),'assets':self.assets(c['id'])}
             feedback=''
             for attempt in range(2):
                 checkpoint()
@@ -113,7 +113,7 @@ class Generation:
             rows=self.materials(c['id'])
             if row['kind']=='initial' and not self.eligible(c,cfg,time.time()):raise ValueError('Source/permission invalid')
             metadata=json.loads(row['evidence']);brief=validate_brief(metadata['brief'],rows) if row['kind']=='initial' else metadata.get('brief',{})
-            assets=self.assets(c['id']);context={'name':c['name'],'sources':rows,'brief':brief,'assets':assets,'copy_metadata':{**metadata.get('copy',{}),'subject':row['subject'],'body':row['body']},'book':BOOK_FACTS}
+            assets=self.assets(c['id']);book=book_facts(cfg,reply=row['kind']=='reply');context={'name':c['name'],'sources':rows,'brief':brief,'assets':assets,'copy_metadata':{**metadata.get('copy',{}),'subject':row['subject'],'body':row['body']},'book':book}
             if row['kind']=='reply':
                 inbound=self.store.message(row['inbound_id']);self.current_inbound(inbound)
                 context.update(inbound=inbound['new_text'],offer=self.offer(c['id']))
@@ -122,8 +122,9 @@ class Generation:
             else:
                 from .mail import render_body
                 result=review_result(self.ai.review_initial(context,row['subject'],render_body(framed(c,row['body']),c,cfg)))
+            result=quality_floor(result,cfg)
             copy={**metadata['copy'],'subject':row['subject'],'body':row['body']}
-            validate_copy(copy,rows,assets,initial=row['kind']=='initial')
+            validate_copy(copy,rows,assets,initial=row['kind']=='initial',book=book,ku_allowed=ku_active(cfg))
             if row['kind']=='reply':self.validate_fulfillment(self.store.message(row['inbound_id']),copy)
             approved=result['approved']
         except Exception as exc:result={'approved':False,'error':type(exc).__name__,'reason':'检查未完成或硬校验失败：'+type(exc).__name__}
@@ -142,28 +143,28 @@ class Generation:
         if row['origin']!='ai' or row['kind'] not in ('initial','reply') or row['contract_version']!=CONTRACT:return False
         sql='SELECT * FROM reviews WHERE message_id=? AND revision=? ORDER BY id DESC LIMIT 1'
         r=db.execute(sql,(row['id'],row['revision'])).fetchone() if db else self.store.one(sql,(row['id'],row['revision']))
-        return bool(r and json.loads(r['result']).get('approved') is True and r['binding']==self.binding(row,db))
+        return bool(r and quality_floor(json.loads(r['result']),self.config.get()).get('approved') is True and r['binding']==self.binding(row,db))
     def approve(self,mid,manual_confirmed=False):
         with self.store.tx() as db:
             row=dict(db.execute('SELECT * FROM messages WHERE id=?',(mid,)).fetchone())
             if row['state']!='draft' or row['attempt_at'] is not None:raise ValueError('Not an approvable draft')
             if row['origin']=='manual' and row['kind']=='manual':
                 if not manual_confirmed:raise ValueError('Explicit manual identity/policy responsibility confirmation required')
-                policy_text_guard(row['body']);self.current_inbound(self.store.message(row['inbound_id']))
+                policy_text_guard(row['body'],ku_allowed=ku_active(self.config.get()));self.current_inbound(self.store.message(row['inbound_id']),manual=True)
             elif not self.approved(row,db):raise ValueError('Requires successful current AI/hard check')
             if db.execute('SELECT 1 FROM suppressions s JOIN contacts c ON c.email_hash=s.email_hash WHERE c.id=?',(row['contact_id'],)).fetchone():raise ValueError('Suppressed')
             db.execute("UPDATE messages SET state='queued',human_revision=revision WHERE id=?",(mid,))
     def edit(self,mid,subject,body):
         from .domain import safe_header
-        safe_header(subject,240);policy_text_guard(body)
+        safe_header(subject,240);policy_text_guard(body,ku_allowed=ku_active(self.config.get()))
         with self.store.tx() as db:
             row=dict(db.execute('SELECT * FROM messages WHERE id=?',(mid,)).fetchone())
             if row['direction']!='outbound' or row['state'] not in ('draft','held','queued') or row['attempt_at'] is not None:raise ValueError('Not editable')
             if row['kind']=='initial' and subject.lower().startswith(('re:','fw:','fwd:')):raise ValueError('False initial reply subject')
             self.remember(mid,db)
             db.execute("UPDATE messages SET subject=?,body=?,revision=revision+1,human_revision=NULL,state='draft',error='编辑后须重新检查' WHERE id=?",(subject,body,mid))
-    def current_inbound(self,inbound):
-        if not inbound or inbound['kind']!='human' or opt_out(inbound['new_text']) or sensitive_request(inbound['new_text']):raise ValueError('Inbound requires suppression/human handling')
+    def current_inbound(self,inbound,*,manual=False):
+        if not inbound or inbound['kind']!='human' or inbound['state'] in ('superseded','ignored') or inbound.get('classification') in ('decline','opt_out') or opt_out(inbound['new_text']) or (not manual and sensitive_request(inbound['new_text'])):raise ValueError('Inbound requires suppression/human handling')
         latest=self.store.one("SELECT id FROM messages WHERE contact_id=? AND direction='inbound' AND kind='human' ORDER BY id DESC LIMIT 1",(inbound['contact_id'],))
         if not latest or latest['id']!=inbound['id']:raise ValueError('New inbound supersedes reply')
     def offer(self,cid):
@@ -181,26 +182,36 @@ class Generation:
     def _generate_reply(self,inbound,contact,info):
         self.current_inbound(inbound)
         rows=self.materials(contact['id']);assets=self.assets(contact['id'])
-        context={'sources':rows,'book':BOOK_FACTS,'fresh_inbound':inbound['new_text'],'classification':info,'offer':self.offer(contact['id']),'assets':assets}
+        context={'sources':rows,'book':book_facts(self.config.get(),reply=True),'fresh_inbound':inbound['new_text'],'classification':info,'offer':self.offer(contact['id']),'assets':assets}
         self.ai.draft_id=None;self.ai.inbound_id=inbound['id']
         try:copy=self.ai.reply_copy(context)
         finally:self.ai.inbound_id=None
         if copy.get('needs_human'):raise ValueError('Reply needs human')
-        validate_copy(copy,rows,assets,initial=False);self.validate_fulfillment(inbound,copy)
+        validate_copy(copy,rows,assets,initial=False,book=context['book'],ku_allowed=ku_active(self.config.get()));self.validate_fulfillment(inbound,copy)
         return self.queue_reply(inbound,contact,copy,automatic=True)
-    def queue_reply(self,inbound,contact,body,automatic=True):
-        self.current_inbound(inbound)
-        if self.store.is_suppressed(contact['id']):raise ValueError('Suppressed')
+    def queue_reply(self,inbound,contact,body,automatic=True,review=True):
+        if not inbound or not contact or inbound['contact_id']!=contact['id'] or inbound['sender']!=contact['email']:
+            raise ValueError('Reply recipient must match the verified inbound contact')
+        self.current_inbound(inbound,manual=not automatic)
+        if self.store.is_suppressed(contact['id']) or contact['state'] in ('suppressed','deleted','archived','paused'):raise ValueError('Suppressed or stopped')
         copy=body if isinstance(body,dict) else None
         if automatic and copy is None:raise ValueError('Automatic reply requires full draft contract')
-        if not automatic:policy_text_guard(body)
+        if not automatic:policy_text_guard(body,ku_allowed=ku_active(self.config.get()))
         refs=(inbound['references_text'].split()+[inbound['message_id']])[-10:]
         subject=inbound['subject'] if inbound['subject'].lower().startswith('re:') else 'Re: '+inbound['subject']
         with self.store.tx() as db:
-            old=db.execute('SELECT * FROM messages WHERE inbound_id=?',(inbound['id'],)).fetchone()
+            latest=db.execute("SELECT id FROM messages WHERE contact_id=? AND direction='inbound' AND kind='human' ORDER BY id DESC LIMIT 1",(contact['id'],)).fetchone()
+            if not latest or latest['id']!=inbound['id']:raise ValueError('New inbound supersedes reply')
+            if db.execute('SELECT 1 FROM suppressions WHERE email_hash=?',(contact['email_hash'],)).fetchone():raise ValueError('Suppressed')
+            old=db.execute("SELECT * FROM messages WHERE inbound_id=? AND state!='superseded' ORDER BY id DESC LIMIT 1",(inbound['id'],)).fetchone()
             if old:
-                if old['attempt_at'] is not None or old['state'] not in ('held','draft','cancelled'):raise ValueError('Reply already exists')
-                if (old['origin']=='ai' or old['kind']!='manual') and not automatic:raise ValueError('AI draft cannot be relabelled manual')
+                if old['attempt_at'] is not None or old['state'] not in ('held','draft','queued','cancelled'):raise ValueError('Reply already exists')
+                if not automatic and old['origin']=='ai':
+                    db.execute("UPDATE messages SET state='superseded',error='人工接管；保留原AI草稿和审核记录' WHERE id=?",(old['id'],))
+                    old=None
+                elif not automatic and old['origin']=='manual':raise ValueError('人工接管草稿已存在；请编辑现有草稿')
+                elif (old['origin']=='manual' or old['kind']!='reply') and automatic:raise ValueError('Manual reply cannot be relabelled AI')
+            if old:
                 mid=old['id'];self.remember(mid,db)
                 db.execute("UPDATE messages SET revision=revision+1,state='draft',human_revision=NULL,error='' WHERE id=?",(mid,))
             else:
@@ -208,7 +219,7 @@ class Generation:
             db.execute('UPDATE messages SET body=?,subject=?,evidence=? WHERE id=?',(copy['body'] if automatic else body,copy['subject'] if automatic else subject[:240],json.dumps({'copy':copy,'brief':{}}) if automatic else '{}',mid))
             if automatic:db.execute("UPDATE messages SET origin='ai',contract_version=? WHERE id=?",(CONTRACT,mid))
             if not automatic:db.execute("UPDATE messages SET origin='manual',human_revision=revision,state='queued' WHERE id=?",(mid,))
-        if automatic:self.review_message(mid)
+        if automatic and review:self.review_message(mid)
         return mid
     def redraft_reply(self,mid):
         row=self.store.message(mid)
@@ -219,10 +230,10 @@ class Generation:
         with chain():return self._create_asset(cid)
     def _create_asset(self,cid):
         c=self.store.contact(cid);rows=self.materials(cid)
-        result,_=self.ai.call('Create an original 40–80 word teaching example of planning with AI and directing building/checking, grounded in supplied work. Not a book excerpt or real customer outcome. JSON {body:string}. No links, commitments or personal facts.',json.dumps({'sources':rows,'book':BOOK_FACTS}),purpose='asset')
+        result,_=self.ai.call('Create an original 40–80 word teaching example of planning with AI and directing building/checking, grounded in supplied work. Not a book excerpt or real customer outcome. JSON {body:string}. No links, commitments or personal facts.',json.dumps({'sources':rows,'book':book_facts(self.config.get())}),purpose='asset')
         body=result.get('body','');policy_text_guard(body,initial=True)
         if not 40<=len(body.split())<=80:raise ValueError('Example length')
-        context={'sources':rows,'book':BOOK_FACTS,'asset_type':'Original teaching example, not a quotation or customer result'}
+        context={'sources':rows,'book':book_facts(self.config.get()),'asset_type':'Original teaching example, not a quotation or customer result'}
         verdict=review_result(self.ai.review_initial(context,'Original teaching example',body))
         if not verdict['approved'] or digest(self.materials(cid))!=digest(rows):raise ValueError('Example not approved or evidence changed')
-        return self.store.execute('INSERT INTO assets(contact_id,body,content_hash,approved,review,created_at) VALUES(?,?,?,?,?,?)',(cid,body,digest(body),1,json.dumps({**verdict,'book_version':BOOK_VERSION,'policy_version':POLICY_VERSION,'sources_hash':digest(rows),'review_profile':Profiles(self.config).preview('review')}),time.time()))
+        return self.store.execute('INSERT INTO assets(contact_id,body,content_hash,approved,review,created_at) VALUES(?,?,?,?,?,?)',(cid,body,digest(body),1,json.dumps({**verdict,'book_version':book_version(self.config.get()),'policy_version':POLICY_VERSION,'sources_hash':digest(rows),'review_profile':Profiles(self.config).preview('review')}),time.time()))

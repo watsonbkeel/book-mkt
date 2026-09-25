@@ -38,6 +38,17 @@ class Profiles:
         r=self.store.one('SELECT p.* FROM profiles p JOIN task_routes t ON p.id=t.profile_id WHERE t.task=?',(task,))
         if not r:raise ValueError('Task profile is not configured')
         return dict(id=r['id'],version=r['version'],**json.loads(r['config']))
+    def readiness(self,tasks):
+        issues=[]
+        for task in tasks:
+            try:p=self.resolve(task)
+            except ValueError:issues.append(task+': 缺少任务路由');continue
+            if p.get('protocol') not in ('responses','chat','anthropic'):issues.append(task+': 协议缺失')
+            u=urlsplit(p.get('base_url',''))
+            if u.scheme!='https' or not u.hostname or u.port not in (None,443):issues.append(task+': 端点缺失或无效')
+            if not p.get('model'):issues.append(task+': 模型缺失')
+            if not p.get('secret_ref') or not self.config.secret(p['secret_ref']):issues.append(task+': 密钥缺失')
+        return issues
     def save(self,pid,data,key=''):
         if not re.fullmatch(r'[a-zA-Z0-9_-]{1,60}',pid):raise ValueError('Invalid profile ID')
         allowed={'protocol','base_url','model','effort','thinking','thinking_budget','max_tokens','timeout','native_search','capability_status','supported_efforts','label'}

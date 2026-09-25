@@ -124,6 +124,7 @@ def test_research_rotation_uses_six_three_one_and_all_target_countries(tmp_path)
     store = Store(tmp_path / 'rotation.sqlite3'); store.init(); config = Config(store, tmp_path)
     ai = AI(store, config)
     assert [code for code, _ in TARGET_COUNTRIES] == ['US','GB','DE','FR','ES','IT','NL','JP','BR','CA','MX','AU','IN']
+    config.update({'research_countries':[code for code,_ in TARGET_COUNTRIES]})
     for rotation in range(13):
         store.set_state('research_rotation', rotation + 1)
         assert ai.target_country()[0] == TARGET_COUNTRIES[rotation][0]

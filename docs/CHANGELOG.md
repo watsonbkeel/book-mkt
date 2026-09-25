@@ -51,3 +51,12 @@ Previous releases below are historical.
 - Schema1→2自动安全迁移，原密钥/游标/历史保留；全自动化暂停，旧待发held。
 - 提供保留原卷的升级脚本及回退文档；不改Nginx、外部业务或出版定位。
 - 最终119项测试；9页18次浏览器内容渲染。真实服务/容器联调仍待部署者验证。
+# 1.3.1 — remaining fixes (2026-09-25)
+
+- Give reply generation/review the fixed Amazon URL without exposing it to initial drafts; reject other links and expired KU claims.
+- Add audited manual reply takeover that preserves superseded AI drafts and reviews, and keeps suppression, recipient, threading and SMTP uncertainty checks.
+- Apply configurable per-dimension and mean quality floors to new and stored reviews. Previously approved low-score drafts lose approval and require recheck.
+- Stage reply classification, composition and review as durable Worker jobs, one model call per turn.
+- Default research to the US, allow selected-country rotation, and provide confirmed out-of-scope candidate archival without deleting history.
+- Check actual task Profiles before enabling work; retain unrelated Legacy Profile settings when classification model changes.
+- Unify qualification inputs and add an aggregate-only `qualification-report` CLI. Schema 4→5 pauses automation and holds pending drafts.

@@ -102,7 +102,7 @@ def test_legacy_upgrade_preserves_explicit_schedule_secrets_and_records(env):
     s.set_state('last_poll_attempt',1234);s.set_state('last_initial_terminal',1200)
     s.execute('UPDATE schema_version SET version=2');s.init()
     cfg = c.get()
-    assert s.one('SELECT version FROM schema_version')['version'] == 4
+    assert s.one('SELECT version FROM schema_version')['version'] == 5
     assert cfg['timezone'] == 'Asia/Hong_Kong' and cfg['window_start']=='09:00'
     assert not any(cfg[k] for k in ('sending_enabled','research_enabled','auto_reply_enabled'))
     assert c.secret('api_key') == 'test-key' and s.one("SELECT value FROM secrets WHERE key='api_key'")['value'] == secret

@@ -132,7 +132,10 @@ def test_new_inbound_during_reply_and_held_redo(env):
     s.update_message(mid,state='held');again=e.generate_reply(latest,s.contact(cid),{})
     assert again==mid and s.message(mid)['revision']==2
     assert s.one('SELECT COUNT(*) n FROM messages WHERE inbound_id=?',(latest['id'],))['n']==1
-    with pytest.raises(ValueError):e.queue_reply(latest,s.contact(cid),'Manual relabel attempt with enough words to pass.',automatic=False)
+    manual=e.queue_reply(latest,s.contact(cid),'I will answer this question directly after checking the available book facts.',automatic=False)
+    assert manual!=mid and s.message(mid)['state']=='superseded'
+    assert s.message(manual)['origin']=='manual'
+    assert s.all('SELECT * FROM reviews WHERE message_id=?',(mid,))
 
 @pytest.mark.parametrize('protocol,effort,field',[('responses','xhigh','reasoning'),('chat','high','reasoning_effort'),('anthropic','max','output_config')])
 def test_profile_payload_route_and_observability(env,protocol,effort,field):
@@ -194,7 +197,7 @@ def test_current_schema3_upgrade_is_idempotent(env):
     c.update({'research_interval_minutes':60,'daily_limit':4,'gap_minutes':90,'classification_model':'actual-classifier'})
     s.set_state('imap_cursor:synthetic',{'last':31,'validity':'7'});s.set_state('research_rotation',42)
     s.execute('UPDATE schema_version SET version=3');s.init();c=Config(s,c.dir)
-    assert s.one('SELECT version FROM schema_version')['version']==4
+    assert s.one('SELECT version FROM schema_version')['version']==5
     assert c.secret('smtp_password')==secret and s.message(mid)['body']==before['body']
     assert c.get()['daily_limit']==4 and c.get()['research_interval_minutes']==60 and c.get()['gap_minutes']==90
     assert c.get()['outbound_mode']=='review' and not c.get()['sending_enabled']
@@ -219,7 +222,7 @@ def test_actual_schema3_ddl_migration_backup_and_rollback(tmp_path):
     encrypted=s.one("SELECT value FROM secrets WHERE key='api_key'")['value'];key=(old/'master.key').read_bytes()
     archive=tmp_path/'pre13.zip';backup(old,archive)
     s.init();c=Config(s,old)
-    assert s.one('SELECT version FROM schema_version')['version']==4
+    assert s.one('SELECT version FROM schema_version')['version']==5
     assert s.one("SELECT value FROM secrets WHERE key='api_key'")['value']==encrypted and (old/'master.key').read_bytes()==key
     assert [r['state'] for r in s.all('SELECT state FROM messages ORDER BY id')]==['accepted','held','held','uncertain']
     assert all(r['body']=='Original body' and r['wire']==b'original synthetic MIME' for r in s.all('SELECT * FROM messages'))

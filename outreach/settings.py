@@ -14,18 +14,20 @@ DEFAULTS={
  'imap_host':'','imap_port':993,'imap_security':'ssl','imap_username':'','imap_mailbox':'INBOX',
  'trusted_authserv_id':'','require_dmarc':True,
  'api_base_url':'https://api.openai.com/v1','api_mode':'responses','model':'gpt-6-luna','classification_model':'','reasoning_effort':'low','send_reasoning':True,'send_max_tool_calls':True,'native_search_call_limit':4,
- 'search_mode':'native','brave_base_url':'https://api.search.brave.com/res/v1',
+ 'search_mode':'native','brave_base_url':'https://api.search.brave.com/res/v1','research_countries':['US'],
  'timezone':'America/New_York','daily_limit':10,'gap_minutes':70,'window_start':'08:30','window_end':'19:30',
  'daily_reply_limit':20,'reply_gap_minutes':5,'max_thread_replies':2,'daily_thread_replies':2,
  'daily_api_calls':60,'daily_research_calls':3,'daily_fetches':80,'research_batch_size':8,'queue_target':20,'research_interval_minutes':240,
  'research_enabled':False,'sending_enabled':False,'auto_reply_enabled':False,'outbound_mode':'review',
  'outreach_scope':'consent_only','scope_confirmed':False,'sender_auth_confirmed':False,
  'evidence_source_chars':4000,'evidence_contact_chars':8000,'evidence_task_chars':48000,
- 'max_source_age_days':14,'retention_days':90,'domain_cooldown_days':365}
+ 'max_source_age_days':14,'retention_days':90,'domain_cooldown_days':365,
+ 'quality_min_each':2,'quality_min_mean':3.0,'ku_enrolled_until':'2026-12-15'}
 SECRETS={'smtp_password','imap_password','api_key','brave_api_key'}
 BOOLS={k for k,v in DEFAULTS.items() if isinstance(v,bool)}
 INTS={k for k,v in DEFAULTS.items() if isinstance(v,int) and not isinstance(v,bool)}
-RANGES={'evidence_source_chars':(500,8000),'evidence_contact_chars':(1000,16000),'evidence_task_chars':(8000,64000),'research_interval_minutes':(30,1440),'domain_cooldown_days':(365,730),'daily_limit':(1,10),'gap_minutes':(61,240),'daily_reply_limit':(1,30),'reply_gap_minutes':(2,120),'max_thread_replies':(1,5),'daily_thread_replies':(1,3),'daily_api_calls':(5,200),'daily_research_calls':(1,150),'native_search_call_limit':(1,12),'daily_fetches':(5,500),'research_batch_size':(1,8),'queue_target':(5,40),'max_source_age_days':(1,30),'retention_days':(30,365),'smtp_port':(1,65535),'imap_port':(1,65535)}
+FLOATS={'quality_min_mean'}
+RANGES={'evidence_source_chars':(500,8000),'evidence_contact_chars':(1000,16000),'evidence_task_chars':(8000,64000),'research_interval_minutes':(30,1440),'domain_cooldown_days':(365,730),'daily_limit':(1,10),'gap_minutes':(61,240),'daily_reply_limit':(1,30),'reply_gap_minutes':(2,120),'max_thread_replies':(1,5),'daily_thread_replies':(1,3),'daily_api_calls':(5,200),'daily_research_calls':(1,150),'native_search_call_limit':(1,12),'daily_fetches':(5,500),'research_batch_size':(1,8),'queue_target':(5,40),'max_source_age_days':(1,30),'retention_days':(30,365),'smtp_port':(1,65535),'imap_port':(1,65535),'quality_min_each':(0,4),'quality_min_mean':(0,4.5)}
 class Config:
  def __init__(self,store,data_dir):
   self.store=store;self.dir=Path(data_dir);self.dir.mkdir(parents=True,exist_ok=True);keyfile=self.dir/'master.key'
@@ -62,9 +64,22 @@ class Config:
    except (ValueError,TypeError):raise ValueError(k+'应为整数')
    lo,hi=RANGES[k]
    if not lo<=cand[k]<=hi:raise ValueError(f'{k}必须为{lo}—{hi}')
-  for k in set(DEFAULTS)-BOOLS-INTS:
+  for k in FLOATS:
+   try:cand[k]=float(cand[k])
+   except (ValueError,TypeError):raise ValueError(k+'应为数字')
+   lo,hi=RANGES[k]
+   if not lo<=cand[k]<=hi:raise ValueError(f'{k}必须为{lo}—{hi}')
+  from .ai import TARGET_COUNTRIES
+  countries=cand['research_countries']
+  if not isinstance(countries,list) or not countries or len(set(countries))!=len(countries) or any(code not in dict(TARGET_COUNTRIES) for code in countries):raise ValueError('研究国家须为非空、无重复的目标国家代码列表')
+  for k in set(DEFAULTS)-BOOLS-INTS-FLOATS-{'research_countries'}:
    if not isinstance(cand[k],str) or len(cand[k])>4000:raise ValueError(k+'过长或类型错误')
    cand[k]=cand[k].strip()
+  if cand['ku_enrolled_until']:
+   from datetime import date
+   try:
+    if date.fromisoformat(cand['ku_enrolled_until']).isoformat()!=cand['ku_enrolled_until']:raise ValueError
+   except ValueError:raise ValueError('KU截止日期须为YYYY-MM-DD或留空')
   try: ZoneInfo(cand['timezone'])
   except (ZoneInfoNotFoundError, ValueError): raise ValueError('未知时区')
   if not cand['timezone']:raise ValueError('时区不能为空')
@@ -96,27 +111,44 @@ class Config:
    if route and route['id'] not in ('legacy','legacy-research'):research_protocol=json.loads(route['config'])['protocol']
   if cand['search_mode']=='native' and research_protocol=='chat':raise ValueError('研究profile为Chat时需要Brave；原生搜索仅用于Responses或Anthropic Messages')
   if cand['api_base_url']!=current['api_base_url'] and self.secret('api_key') and not patch.get('api_key'):raise ValueError('更换API端点须明确提供新密钥，不转发旧密钥')
-  model_changed=any(k in patch and (bool(patch[k]) and patch[k]!=self.secret(k) if k in SECRETS else patch[k]!=current[k]) for k in ('api_base_url','api_mode','model','classification_model','reasoning_effort','send_reasoning','api_key'))
+  legacy_fields=('api_base_url','api_mode','model','reasoning_effort','send_reasoning','api_key')
+  changed_legacy={k for k in legacy_fields if k in patch and (bool(patch[k]) and patch[k]!=self.secret(k) if k in SECRETS else patch[k]!=current[k])}
+  classification_changed='classification_model' in patch and patch['classification_model']!=current['classification_model']
   with self.store.tx() as db:
    db.execute("INSERT INTO settings VALUES('config',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",(json.dumps(cand,ensure_ascii=False),))
    for k in SECRETS:
     if k in patch and patch[k]:
      if len(str(patch[k]))>4096:raise ValueError('密钥过长')
      db.execute('INSERT INTO secrets VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',(k,self.fernet.encrypt(str(patch[k]).encode())))
-  if self.store.one("SELECT 1 FROM sqlite_master WHERE name='profiles'") and model_changed:
+  if self.store.one("SELECT 1 FROM sqlite_master WHERE name='profiles'") and (changed_legacy or classification_changed):
    from .profiles import Profiles
    profiles=Profiles(self)
    with self.store.tx() as db:
-    db.execute("UPDATE profiles SET config=?,version=version+1 WHERE id='legacy'",(json.dumps(profiles.legacy()),))
-    db.execute("UPDATE profiles SET config=?,version=version+1 WHERE id='legacy-research'",(json.dumps({**profiles.legacy(),'max_tokens':5500,'label':'Legacy research budget'}),))
-    if cand['classification_model']:
-     cp={**profiles.legacy(),'model':cand['classification_model']}
-     db.execute("INSERT INTO profiles VALUES('legacy-classification',1,?) ON CONFLICT(id) DO UPDATE SET config=excluded.config,version=profiles.version+1",(json.dumps(cp),))
-     db.execute("UPDATE task_routes SET profile_id='legacy-classification' WHERE task='classification' AND profile_id='legacy'")
-    elif 'classification_model' in patch:
-     db.execute("UPDATE task_routes SET profile_id='legacy' WHERE task='classification' AND profile_id='legacy-classification'")
-    profiles.invalidate(db,{r[0] for r in db.execute("SELECT task FROM task_routes WHERE profile_id IN ('legacy','legacy-research','legacy-classification')")})
-  if self.store.one("SELECT 1 FROM sqlite_master WHERE name='profiles'") and any(k in patch and patch[k]!=current[k] for k in ('outbound_mode','sender_name','sender_email','postal_address','company_name','public_url','outreach_scope','require_dmarc','trusted_authserv_id','max_source_age_days')):
+    changed_profiles=[]
+    if changed_legacy:
+     fresh=profiles.legacy()
+     mapping={'api_base_url':'base_url','api_mode':'protocol','model':'model','reasoning_effort':'effort','send_reasoning':'effort','api_key':'secret_ref'}
+     for pid in ('legacy','legacy-research'):
+      row=db.execute('SELECT config FROM profiles WHERE id=?',(pid,)).fetchone()
+      if not row:continue
+      profile=json.loads(row[0])
+      for field in changed_legacy:profile[mapping[field]]=fresh[mapping[field]]
+      if changed_legacy & {'api_mode','reasoning_effort','send_reasoning'}:profile['effort']=fresh['effort']
+      if changed_legacy & {'api_mode'}:profile['native_search']=fresh['native_search']
+      db.execute('UPDATE profiles SET config=?,version=version+1 WHERE id=?',(json.dumps(profile),pid));changed_profiles.append(pid)
+    if classification_changed:
+     if cand['classification_model']:
+      row=db.execute("SELECT config FROM profiles WHERE id='legacy-classification'").fetchone()
+      cp=json.loads(row[0]) if row else profiles.legacy()
+      cp['model']=cand['classification_model']
+      db.execute("INSERT INTO profiles VALUES('legacy-classification',1,?) ON CONFLICT(id) DO UPDATE SET config=excluded.config,version=profiles.version+1",(json.dumps(cp),))
+      db.execute("UPDATE task_routes SET profile_id='legacy-classification' WHERE task='classification' AND profile_id='legacy'")
+     else:db.execute("UPDATE task_routes SET profile_id='legacy' WHERE task='classification' AND profile_id='legacy-classification'")
+     changed_profiles.append('legacy-classification')
+    affected={r[0] for r in db.execute('SELECT task FROM task_routes WHERE profile_id IN ('+','.join('?' for _ in changed_profiles)+')',changed_profiles)}
+    if classification_changed:affected.add('classification')
+    profiles.invalidate(db,affected)
+  if self.store.one("SELECT 1 FROM sqlite_master WHERE name='profiles'") and any(k in patch and patch[k]!=current[k] for k in ('outbound_mode','sender_name','sender_email','postal_address','company_name','public_url','outreach_scope','require_dmarc','trusted_authserv_id','max_source_age_days','quality_min_each','quality_min_mean','ku_enrolled_until')):
    from .profiles import Profiles
    with self.store.tx() as db:Profiles.invalidate(db)
   # Connection-change invalidation prevents old "tested" flags from authorizing a new host.

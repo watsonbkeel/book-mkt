@@ -37,6 +37,7 @@ def test_international_research_rotates_targets_and_holds_public_uk_contact(tmp_
     from outreach.research import verify_candidate
     s=Store(tmp_path/'db');s.init();c=Config(s,tmp_path);ai=AI(s,c)
     assert [code for code,_ in TARGET_COUNTRIES]==['US','GB','DE','FR','ES','IT','NL','JP','BR','CA','MX','AU','IN']
+    c.update({'research_countries':[code for code,_ in TARGET_COUNTRIES]})
     s.set_state('research_rotation',1)
     assert ai.next_query('operator').endswith('United States')
     s.set_state('research_rotation',2)

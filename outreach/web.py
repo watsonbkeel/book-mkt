@@ -21,13 +21,16 @@ from .domain import validate_initial,safe_header
 from .domain import csv_safe,normalize_email,policy_text_guard,BOOK_TITLE,CHAPTERS,range_bounds
 from .qualification import annotate,summary as qualification_summary,with_human_fit_quote,with_permission
 
+QUALIFICATION_FIELDS="c.*,(SELECT COUNT(*) FROM evidence_sources e WHERE e.contact_id=c.id AND e.active=1) AS active_snapshot_count"
+QUALIFICATION_QUERY='SELECT '+QUALIFICATION_FIELDS+' FROM contacts c'
+
 STATE_NAMES={'archived':'已归档','candidate':'待核实','ready':'可起草','queued':'排队','contacted':'已联系','paused':'暂停','suppressed':'已停发','deleted':'已匿名','draft':'待审核','sending':'正在提交SMTP','accepted':'SMTP已接受','uncertain':'提交结果不确定','held':'需人工处理','cancelled':'已取消','historical':'用户报告历史','new':'待分类','human_review':'需人工处理','ignored':'不自动回复','processed':'已处理','superseded':'被更新来信取代','done':'完成','failed':'失败','running':'执行中','rejected':'SMTP明确拒绝','deferred':'SMTP临时拒绝（未重试）'}
 SETTING_GROUPS=[
  ('发件身份与合法联系范围',[('sender_name','发件显示名','text'),('company_name','公司/组织名称（可留空，不由AI编造）','text'),('sender_email','发件/回复邮箱','email'),('postal_address','真实邮寄地址（自动附在邮件底部）','textarea'),('public_url','可选：本系统HTTPS公网地址，用于退订；不是资源站地址','url'),('outreach_scope','自动联系范围','scope'),('scope_confirmed','我已核实适用地区、个人数据和联系规则，承担本次外发责任','checkbox'),('sender_auth_confirmed','邮件服务允许此用途；SPF/DKIM/DMARC和退订收信已核查','checkbox')]),
  ('SMTP发信',[('smtp_host','SMTP主机','text'),('smtp_port','端口','number'),('smtp_security','传输加密','security'),('smtp_username','用户名','text'),('smtp_password','应用密码/SMTP密码（留空保留）','password')]),
  ('IMAP收信',[('imap_host','IMAP主机','text'),('imap_port','端口','number'),('imap_security','传输加密','security'),('imap_username','用户名','text'),('imap_password','应用密码/IMAP密码（留空保留）','password'),('imap_mailbox','收取文件夹','text'),('require_dmarc','自动回复要求可信收件服务器的DMARC通过','checkbox'),('trusted_authserv_id','可信Authentication-Results服务器，例如mx.google.com；需提供方保证清理伪造头','text')]),
  ('模型与网页搜索',[('api_base_url','模型API Base URL（一般以/v1结尾）','url'),('api_mode','接口协议','api'),('model','研究/写信模型名','text'),('classification_model','可选：独立分类模型名（同API端点，空则沿用）','text'),('send_reasoning','发送reasoning参数（兼容接口不支持时关闭）','checkbox'),('send_max_tool_calls','发送max_tool_calls参数（网关不支持时关闭）','checkbox'),('native_search_call_limit','单次原生搜索调用上限','number'),('api_key','API Key（留空保留）','password'),('reasoning_effort','Responses推理强度','reasoning'),('search_mode','网页搜索方式','search'),('brave_base_url','Brave API地址（备用方式）','url'),('brave_api_key','Brave API Key（仅备用搜索需要）','password')]),
- ('证据快照上限',[('evidence_source_chars','单来源原文字符上限','number'),('evidence_contact_chars','单候选原文字符上限','number'),('evidence_task_chars','每次研究保存原文字符上限','number')]),
+ ('证据快照上限',[('evidence_source_chars','单来源原文字符上限','number'),('evidence_contact_chars','单候选原文字符上限','number'),('evidence_task_chars','每次研究保存原文字符上限','number'),('research_countries','研究国家代码（逗号分隔）','text'),('ku_enrolled_until','KU有效截止日期（空值表示未加入）','text'),('quality_min_each','文案单项最低分','number'),('quality_min_mean','文案平均最低分','text')]),
  ('调度与预算',[('timezone','每日额度统计时区','text'),('daily_limit','首封每日上限（最多10）','number'),('gap_minutes','首封最小间隔分钟（至少61，默认70）','number'),('window_start','首封开始时刻','time'),('window_end','首封结束时刻','time'),('outbound_mode','邮件生成后的处理','mode'),('daily_reply_limit','自动/人工回复每日上限','number'),('reply_gap_minutes','回复之间最小间隔分钟','number'),('daily_thread_replies','每线程滚动24小时自动回复上限','number'),('max_thread_replies','每线程自动回复总上限','number'),('daily_api_calls','每日营销模型请求上限（回复不计入）','number'),('research_interval_minutes','自动研究间隔（分钟）','number'),('daily_research_calls','每日搜索研究请求上限','number'),('daily_fetches','每日来源页面核验上限','number'),('research_batch_size','一次研究最多候选数','number'),('queue_target','待处理候选队列上限','number'),('domain_cooldown_days','相同业务域名首封冷却天数（至少365）','number'),('max_source_age_days','来源核验有效天数','number'),('retention_days','邮件正文保留天数','number')])]
 
 
@@ -98,11 +101,18 @@ def create_app(data_dir=None,secure_cookie=None):
         if action=='pause':config.update({'sending_enabled':False,'auto_reply_enabled':False});msg='已暂停后续发送；已进入SMTP的单封邮件无法撤回。收信继续。'
         elif action=='start':
             errors=config.readiness(time.time())
+            if d.get('replies') and config.get()['require_dmarc'] and not config.get()['trusted_authserv_id']:
+                errors.append('自动回复缺少可信收件验证服务器标识')
             if errors:return back('/settings','无法启用：'+'；'.join(errors))
-            if not config.secret('api_key'):return back('/settings','请先配置模型API。')
+            from .profiles import Profiles
+            tasks=('brief','compose','review')+(('classification','reply') if d.get('replies') else ())
+            issues=Profiles(config).readiness(tasks)
+            if issues:return back('/profiles','无法启用：'+'；'.join(issues))
             config.update({'sending_enabled':True,'auto_reply_enabled':bool(d.get('replies'))});msg='发送已启用；仍受来源、每日额度、70分钟及退订保护。'
         elif action=='research_on':
-            if not config.secret('api_key'):return back('/settings','请先配置模型API。')
+            from .profiles import Profiles
+            issues=Profiles(config).readiness(('research',))
+            if issues:return back('/profiles','无法启用：'+'；'.join(issues))
             config.update({'research_enabled':True});msg='自动研究已启用；真实请求会产生模型/搜索费用。'
         elif action=='research_off':config.update({'research_enabled':False});msg='自动研究已关闭。'
         elif action=='clear_circuit':
@@ -114,7 +124,10 @@ def create_app(data_dir=None,secure_cookie=None):
         else:raise ValueError('未知操作')
         return back('/',msg)
     @app.get('/settings',response_class=HTMLResponse)
-    async def settings_get(request:Request):require(request);return render(request,'settings.html',groups=SETTING_GROUPS,schedule=schedule_snapshot(store,config),readiness=config.readiness(time.time()))
+    async def settings_get(request:Request):
+        require(request)
+        visible={**config.public(),'research_countries':','.join(config.get()['research_countries'])}
+        return render(request,'settings.html',cfg=visible,groups=SETTING_GROUPS,schedule=schedule_snapshot(store,config),readiness=config.readiness(time.time()))
     @app.post('/settings')
     async def settings_post(request:Request):
         d=await form(request);patch={}
@@ -123,7 +136,7 @@ def create_app(data_dir=None,secure_cookie=None):
                 if key in BOOLS:patch[key]=bool(d.get(key))
                 elif key in SECRETS:
                     if d.get(key):patch[key]=str(d[key])
-                elif key in d:patch[key]=int(d[key]) if key in INTS else str(d[key])
+                elif key in d:patch[key]=int(d[key]) if key in INTS else ([part.strip().upper() for part in str(d[key]).split(',') if part.strip()] if key=='research_countries' else str(d[key]))
         # Saving credentials or routing configuration suspends sends until explicitly re-enabled.
         old=config.get()
         if any((k.startswith(('smtp_','imap_')) or k in ('sender_email','sender_name','outreach_scope','scope_confirmed','require_dmarc','trusted_authserv_id','timezone','window_start','window_end','gap_minutes')) and v!=old.get(k) for k,v in patch.items()):patch.update(sending_enabled=False,auto_reply_enabled=False)
@@ -180,11 +193,22 @@ def create_app(data_dir=None,secure_cookie=None):
         if q:conditions.append('(c.name LIKE ? OR c.email LIKE ?)');args.extend(['%'+q+'%']*2)
         if reply=='yes':conditions.append("EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=c.id AND m.direction='inbound' AND m.kind='human')")
         page_num=max(1,min(10000,int(request.query_params.get('p','1'))));where=' WHERE '+' AND '.join(conditions) if conditions else ''
-        rows=store.all('SELECT c.*,(SELECT COUNT(*) FROM messages m WHERE m.contact_id=c.id AND m.direction=\'inbound\' AND m.kind=\'human\') AS reply_count,(SELECT COUNT(*) FROM evidence_sources e WHERE e.contact_id=c.id AND e.active=1) AS active_snapshot_count FROM contacts c'+where+' ORDER BY c.id DESC LIMIT 30 OFFSET ?',args+[(page_num-1)*30])
+        rows=store.all('SELECT '+QUALIFICATION_FIELDS+",(SELECT COUNT(*) FROM messages m WHERE m.contact_id=c.id AND m.direction='inbound' AND m.kind='human') AS reply_count FROM contacts c"+where+' ORDER BY c.id DESC LIMIT 30 OFFSET ?',args+[(page_num-1)*30])
         scope=config.get()['outreach_scope'];max_age=config.get()['max_source_age_days'];now=time.time()
         rows=[annotate(row,scope,max_age,now) for row in rows]
-        qualification=qualification_summary(store.all("SELECT c.state,c.eligibility,c.evidence_json,c.historical,c.verified_at,(SELECT COUNT(*) FROM evidence_sources e WHERE e.contact_id=c.id AND e.active=1) AS active_snapshot_count FROM contacts c"),scope,max_age,now)
+        qualification=qualification_summary(store.all(QUALIFICATION_QUERY),scope,max_age,now)
         return render(request,'contacts.html',rows=rows,state=state,reply=reply,q=q,p=page_num,qualification=qualification)
+    @app.post('/contacts/archive-out-of-scope')
+    async def archive_out_of_scope(request:Request):
+        d=await form(request)
+        if d.get('confirmed')!='1':raise ValueError('须二次确认范围外待核候选归档')
+        selected=set(config.get()['research_countries'])
+        with store.tx() as db:
+            rows=db.execute("SELECT id,country FROM contacts WHERE state='candidate' AND historical=0").fetchall()
+            ids=[r['id'] for r in rows if r['country'] and r['country'] not in selected]
+            for cid in ids:db.execute("UPDATE contacts SET state='archived',updated_at=? WHERE id=?",(time.time(),cid))
+        store.audit('out_of_scope_archived',f'count={len(ids)}; scope={",".join(sorted(selected))}')
+        return back('/contacts',f'已归档范围外待核候选 {len(ids)} 人；原记录保留。')
     @app.post('/contacts/add')
     async def contacts_add(request:Request):
         d=await form(request);name=str(d.get('name','')).strip();note=str(d.get('permission_note','')).strip();email=normalize_email(d.get('email',''))
@@ -199,9 +223,9 @@ def create_app(data_dir=None,secure_cookie=None):
     async def history_import(request:Request):await form(request);n=import_history(store);return back('/contacts',f'已导入{n}位历史联系人；不计为系统新发送，禁止再次首封邀请。')
     @app.get('/contacts/{cid}',response_class=HTMLResponse)
     async def detail(request:Request,cid:int):
-        require(request);c=store.contact(cid)
+        require(request);c=store.one(QUALIFICATION_QUERY+' WHERE c.id=?',(cid,))
         if not c:raise HTTPException(404)
-        evidence=json.loads(c['evidence_json']);c['active_snapshot_count']=store.one('SELECT COUNT(*) n FROM evidence_sources WHERE contact_id=? AND active=1',(cid,))['n']
+        evidence=json.loads(c['evidence_json'])
         annotate(c,config.get()['outreach_scope'],config.get()['max_source_age_days'],time.time())
         from .evidence import sources as evidence_sources
         try:snapshots=evidence_sources(store,cid,config.get()['max_source_age_days'])
@@ -306,13 +330,18 @@ def create_app(data_dir=None,secure_cookie=None):
             stamp=datetime.fromisoformat(str(d.get('sent_at','')))
             if stamp.tzinfo is None:raise ValueError('发送时间需含时区，例如2026-09-24T10:00:00+08:00')
             store.update_message(mid,state='accepted',sent_at=stamp.timestamp(),notes='人工据证据确认：'+note)
-        elif action=='manual_reply':
+        elif action in ('manual_reply','take_over_reply'):
             if m['direction']!='inbound' or not m['contact_id'] or not d.get('confirmed'):raise ValueError('需核对真实来信、关联联系人并确认收件人')
+            if action=='take_over_reply' and d.get('takeover_confirmed')!='1':raise ValueError('须再次确认人工接管及保留原AI记录')
             c=store.contact(m['contact_id'])
             if c['email']!=m['sender']:raise ValueError('不能改变收件人')
-            body=str(d.get('body','')).strip();policy_text_guard(body)
+            body=str(d.get('body','')).strip()
+            from .contracts import ku_active
+            policy_text_guard(body,ku_allowed=ku_active(config.get()))
             if len(body)<20:raise ValueError('回复内容过短')
-            Engine(store,config).queue_reply(m,c,body,automatic=False);store.update_message(mid,state='processed',notes='人工确认身份并准备回复')
+            reply_id=Engine(store,config).queue_reply(m,c,body,automatic=False)
+            store.update_message(mid,state='processed',notes='人工确认身份并准备回复')
+            store.audit('reply_taken_over',f'inbound={mid}; manual_reply={reply_id}')
         else:raise ValueError('未知操作')
         store.audit('message_action',f'message={mid}; action={action}');return back('/messages/'+str(mid),'操作已记录；排队不等于已发送。')
     @app.get('/stats',response_class=HTMLResponse)

@@ -1,23 +1,46 @@
 """Generation contract 3: model owns prose, program owns recipients and framing."""
-import re,json
+import re,json,time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from .domain import BOOK_TITLE,BOOK_SUBTITLE,AUTHOR,BOOK_URL,CHAPTERS,validate_initial,policy_text_guard,safe_header,sensitive_request
 from .profiles import digest
 COPY_FIELDS={'subject','body','recipient_claims','book_fact_ids','selected_chapter_ids','offered_next_step','asset_id','asset_version'}
 CONTRACT=3
-POLICY_VERSION='1.3-2'
+POLICY_VERSION='1.3.1-1'
 BOOK_FACTS={'title':BOOK_TITLE,'subtitle':BOOK_SUBTITLE,'author':AUTHOR,'publication':'Published on Amazon',
  'method':'Plan with one AI; use its written brief to direct other AIs to build and check. Humans keep important decisions.',
  'limits':'Practical exercises, not guaranteed results, a children’s curriculum or evidence of customer outcomes.',
  'chapters':CHAPTERS}
-BOOK_VERSION=digest(BOOK_FACTS)
+def ku_active(config,now=None):
+    until=config.get('ku_enrolled_until','')
+    if not until:return False
+    today=datetime.fromtimestamp(time.time() if now is None else now,ZoneInfo(config['timezone'])).date().isoformat()
+    return '2026-09-15'<=today<=until
 
-def validate_copy(value,source_rows,assets=(),initial=True):
+def book_facts(config,now=None,*,reply=False):
+    facts=dict(BOOK_FACTS)
+    if ku_active(config,now):facts['kindle_unlimited']='Existing Kindle Unlimited members may check current book availability on Amazon; purchase is never required to receive a promised answer or example.'
+    if reply:facts['amazon_url']=BOOK_URL
+    return facts
+
+def book_version(config,now=None):
+    return digest(book_facts(config,now))
+
+def quality_floor(verdict,config):
+    if verdict.get('approved') is not True:return verdict
+    scores=verdict.get('quality',{})
+    values=[scores.get(k,0) for k in ('relevance','specificity','naturalness','reply_burden')]
+    if any(type(v) not in (int,float) for v in values) or min(values)<config['quality_min_each'] or sum(values)/4<config['quality_min_mean']:
+        return {**verdict,'approved':False,'reason':'quality_below_floor','reviewer_reason':verdict.get('reason','')}
+    return verdict
+
+def validate_copy(value,source_rows,assets=(),initial=True,book=None,ku_allowed=True):
     if not isinstance(value,dict):raise ValueError('Draft must be an object')
     allowed=COPY_FIELDS
     if set(value)-allowed:raise ValueError('Unknown draft fields; recipient/tools not allowed')
     subject=safe_header(value.get('subject'),240);body=value.get('body')
     if not isinstance(body,str) or not 20<=len(body.split())<=(120 if initial else 220):raise ValueError('Invalid core body word count')
-    policy_text_guard(subject,initial=initial);policy_text_guard(body,initial=initial)
+    policy_text_guard(subject,initial=initial,ku_allowed=ku_allowed);policy_text_guard(body,initial=initial,ku_allowed=ku_allowed)
     if sensitive_request(body) or re.search(r'(?:send|share|provide|attach).{0,50}(?:full|whole|entire|complete).{0,20}(?:book|chapter)|(?:send|share|provide|attach).{0,25}(?:PDF|EPUB|chapter file|chapter text)',body,re.I):raise ValueError('Unsafe commitment/instruction')
     if initial:
         validate_initial(body)
@@ -25,7 +48,7 @@ def validate_copy(value,source_rows,assets=(),initial=True):
     if re.search(r'(?im)^\s*(?:hi |dear |best,|regards,|to stop these messages|book promotion /)',body):raise ValueError('Model must not add greeting/signature/footer')
     if re.search(r'www\.|\b[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:https?://|mailto:)',body,re.I) and initial:raise ValueError('No links or addresses in initial prose')
     facts=value.get('book_fact_ids');chapters=value.get('selected_chapter_ids');claims=value.get('recipient_claims')
-    if not isinstance(facts,list) or not facts or any(x not in BOOK_FACTS for x in facts):raise ValueError('Unknown book fact')
+    if not isinstance(facts,list) or not facts or any(x not in (BOOK_FACTS if book is None else book) for x in facts):raise ValueError('Unknown book fact')
     if not isinstance(chapters,list) or any(type(x) is not int or x not in CHAPTERS for x in chapters):raise ValueError('Unknown chapter')
     if not isinstance(claims,list) or len(claims)>8:raise ValueError('Invalid claims')
     lookup={r['id']:r for r in source_rows}
@@ -49,6 +72,7 @@ def review_result(result):
     if not isinstance(result.get('hard_failures'),list) or any(not isinstance(x,str) for x in result['hard_failures']):raise ValueError('Review requires hard failures')
     if result['approved'] and result['hard_failures']:raise ValueError('Conflicting review')
     quality=result.get('quality')
+    # All dimensions are higher-is-better; reply_burden=5 means an easy reply.
     if not isinstance(quality,dict) or any(type(quality.get(k)) not in (int,float) or not 0<=quality[k]<=5 for k in ('relevance','specificity','naturalness','reply_burden')):raise ValueError('Invalid quality assessment')
     if not isinstance(result.get('reason'),str):raise ValueError('Missing review reason')
     return {'approved':result['approved'],'hard_failures':[x[:300] for x in result['hard_failures'][:8]],'reason':result['reason'][:600],'quality':{k:quality[k] for k in ('relevance','specificity','naturalness','reply_burden')}}
