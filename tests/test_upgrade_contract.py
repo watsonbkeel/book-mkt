@@ -37,7 +37,8 @@ def test_all_modes_full_text_edit_recheck_send(env,mode):
     assert e.dispatch()=='accepted'
     body=e.smtp.sent[0].get_content()
     assert revised in body and body.count('Hi Example,')==1 and body.count('Best,')==1
-    assert body.count("automated reading assistant")==1
+    assert 'Book promotion / reading invitation' not in body
+    assert 'To stop these messages, reply STOP.' not in body
     assert s.message(mid)['body']==revised
     assert len(s.all('SELECT * FROM reviews WHERE message_id=?',(mid,)))==2
 

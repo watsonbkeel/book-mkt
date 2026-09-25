@@ -4,7 +4,7 @@ from .domain import BOOK_TITLE,BOOK_SUBTITLE,AUTHOR,BOOK_URL,CHAPTERS,validate_i
 from .profiles import digest
 COPY_FIELDS={'subject','body','recipient_claims','book_fact_ids','selected_chapter_ids','offered_next_step','asset_id','asset_version'}
 CONTRACT=3
-POLICY_VERSION='1.3-1'
+POLICY_VERSION='1.3-2'
 BOOK_FACTS={'title':BOOK_TITLE,'subtitle':BOOK_SUBTITLE,'author':AUTHOR,'publication':'Published on Amazon',
  'method':'Plan with one AI; use its written brief to direct other AIs to build and check. Humans keep important decisions.',
  'limits':'Practical exercises, not guaranteed results, a children’s curriculum or evidence of customer outcomes.',

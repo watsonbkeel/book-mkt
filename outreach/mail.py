@@ -222,6 +222,6 @@ def compose_message(row,contact,cfg,now):
 
 def render_body(body,contact,cfg):
     url=cfg['public_url']+'/u/'+contact['token'] if cfg['public_url'] else ''
-    footer=f"\n\n—\n{cfg['sender_name']} · Author of Use AI to Direct AI\n{cfg.get('company_name','')}\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\n{cfg['postal_address']}\nTo stop these messages, reply STOP."
-    if url:footer+=' Or unsubscribe: '+url
+    footer=f"\n\n—\n{cfg['sender_name']} · Author of Use AI to Direct AI\n{cfg.get('company_name','')}\n{cfg['postal_address']}"
+    if url:footer+='\nUnsubscribe: '+url
     return body.rstrip()+footer
