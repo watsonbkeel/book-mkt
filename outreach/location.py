@@ -63,10 +63,13 @@ def evaluate_us_location(quote: str, page_texts: list[str]) -> dict:
             start = max(page.rfind(mark, 0, match.start()) for mark in ('. ', '; ', '! ', '? ', '\n'))
             left = max(start + 2 if start >= 0 else 0, match.start() - 140)
             right = min(len(page), match.end() + 90)
-            tails = [page.find(mark, match.end()) for mark in ('. ', '; ', '! ', '? ')]
-            ends = [v + 1 for v in tails if v >= 0]
-            if ends:
-                right = min(right, min(ends))
+            if quote.rstrip().endswith(('.', ';', '!', '?')):
+                right = match.end()
+            else:
+                tails = [page.find(mark, match.end()) for mark in ('. ', '; ', '! ', '? ')]
+                ends = [v + 1 for v in tails if v >= 0]
+                if ends:
+                    right = min(right, min(ends))
             contexts.append(page[left:right])
     if not contexts:
         result['reason'] = '地点摘录未逐字出现在单个来源页面中'

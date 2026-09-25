@@ -111,7 +111,7 @@ def schedule_snapshot(store,config,now=None):
         slots+=1;candidate=next_window_slot(candidate+1,candidate,c)
     queued=store.one("SELECT count(*) n FROM messages WHERE kind='initial' AND state='queued'")['n']
     ready=store.one("SELECT count(*) n FROM contacts c WHERE c.state='ready' AND c.historical=0 AND NOT EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=c.id AND m.kind IN ('initial','historical'))")['n']
-    production={'target':c['daily_limit'],'accepted':accepted,'attempted':attempted,'queued':queued,'ready':ready,'remaining_slots':slots,'queue_gap':max(0,min(c['daily_limit']-attempted,slots)-queued),'api_used':used,'api_limit':c['daily_api_calls'],'research_ceiling':min(50,max(1,c['daily_api_calls']//3)),'initial_ceiling':c['daily_api_calls']}
+    production={'target':c['daily_limit'],'accepted':accepted,'attempted':attempted,'queued':queued,'ready':ready,'remaining_slots':slots,'queue_gap':max(0,min(c['daily_limit']-attempted,slots)-queued),'api_used':used,'api_limit':c['daily_api_calls'],'research_ceiling':c['daily_research_calls'],'initial_ceiling':c['daily_api_calls']}
     return {'production':production,'imap_minutes':60,'next_poll_at':last_poll+IMAP_POLL_SECONDS if last_poll else now,
             'next_initial_at':next_window_slot(now,last,c),'window_capacity':cap,
             'initial_cap':min(cap,c['daily_limit']),'circuit':circuit(store),

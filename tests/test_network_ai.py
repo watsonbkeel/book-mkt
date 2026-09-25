@@ -24,7 +24,7 @@ def test_quoted_email_requires_owner_page():
     row['email']='guessed@example.com'
     bad=verify_candidate(row,fetch,'us_business_public',dns_checker=lambda _: {'status':'mx','mx':['mx.example.com']})
     assert bad['eligibility']=='review'
-    assert '邮箱' in bad['permission_note']
+    assert any(issue['code']=='email_not_published' for issue in json.loads(bad['evidence_json'])['qualification']['reasons'])
 
 def test_non_us_or_personal_stays_review():
     from outreach.research import verify_candidate
@@ -48,11 +48,13 @@ def test_international_research_rotates_targets_and_holds_public_uk_contact(tmp_
     result=verify_candidate(row,lambda url:{'url':url,'text':text,'sha256':'test','retrieved_at':1},
                             'us_business_public',dns_checker=lambda _: {'status':'mx'})
     assert result['country']=='GB' and result['eligibility']=='review'
-    assert '已记录联系许可' in result['permission_note']
+    evidence=json.loads(result['evidence_json'])
+    assert evidence['qualification']['status']=='permission_required'
+    assert any(issue['code']=='permission_required' for issue in evidence['qualification']['reasons'])
     row['country_quote']='Based in Manchester, UK.'
     missing=verify_candidate(row,lambda url:{'url':url,'text':text,'sha256':'test','retrieved_at':1},
                              'us_business_public',dns_checker=lambda _: {'status':'mx'})
-    assert '所在地原文未在来源页核实' in missing['permission_note']
+    assert any(issue['code']=='location_unverified' for issue in json.loads(missing['evidence_json'])['qualification']['reasons'])
 
 def test_budget_is_persistent(tmp_path):
     from outreach.ai import AI, BudgetExceeded

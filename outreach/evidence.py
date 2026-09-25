@@ -6,11 +6,20 @@ def save_sources(store,config,cid,pages,anchor,remaining=None):
     cfg=config.get();budget=min(cfg['evidence_contact_chars'], remaining if remaining is not None else cfg['evidence_task_chars'])
     rows=[]
     for page in pages[:2]:
-        text=page['text'];at=text.casefold().find(anchor.casefold()) if anchor else -1
-        if at<0:continue
+        text=str(page.get('text') or '')
+        if not text:continue
+        anchors=anchor if isinstance(anchor,(list,tuple)) else [anchor]
+        at=-1
+        for candidate in anchors:
+            candidate=' '.join(str(candidate or '').split())
+            if len(candidate)<3:continue
+            at=text.casefold().find(candidate.casefold())
+            if at>=0:break
         size=min(cfg['evidence_source_chars'],budget)
-        if size<100:break
-        start=max(0,at-size//3);excerpt=text[start:start+size]
+        if size<1:break
+        start=max(0,at-size//3) if at>=0 else 0
+        excerpt=text[start:start+size]
+        if not excerpt:continue
         h=digest(excerpt);sid=digest([cid,page['url'],page['sha256'],h,page['retrieved_at']])
         rows.append((sid,cid,page['url'],page['retrieved_at'],page['sha256'],excerpt,h));budget-=len(excerpt)
     with store.tx() as db:

@@ -96,7 +96,7 @@ class Generation:
             return False
         except Exception as e:
             self.fail(mid,revision,'生成停止：'+type(e).__name__)
-            if not self.store.is_suppressed(c['id']):self.store.update_contact(c['id'],state='candidate',runtime_error='生成停止：'+type(e).__name__)
+            self.store.execute("UPDATE contacts SET state='candidate',runtime_error=?,updated_at=? WHERE id=? AND state NOT IN ('paused','suppressed','deleted','archived')",('生成停止：'+type(e).__name__,time.time(),c['id']))
             return False
     def review_initial(self,mid):return self.review_message(mid)
     def review_message(self,mid):
@@ -109,7 +109,7 @@ class Generation:
         try:
             if row['contract_version']!=CONTRACT or row['origin']!='ai':raise ValueError('Legacy contract needs explicit redraft')
             c=self.store.contact(row['contact_id']);cfg=self.config.get()
-            if self.store.is_suppressed(c['id']) or c['state'] in ('paused','deleted','suppressed'):raise ValueError('Contact stopped')
+            if self.store.is_suppressed(c['id']) or c['state'] in ('paused','deleted','suppressed','archived'):raise ValueError('Contact stopped')
             rows=self.materials(c['id'])
             if row['kind']=='initial' and not self.eligible(c,cfg,time.time()):raise ValueError('Source/permission invalid')
             metadata=json.loads(row['evidence']);brief=validate_brief(metadata['brief'],rows) if row['kind']=='initial' else metadata.get('brief',{})
@@ -134,7 +134,7 @@ class Generation:
             if current['attempt_at'] is not None or current['state'] not in ('draft','held','queued') or self.binding(current,db)!=binding:return False
             state=('draft' if cfg['outbound_mode']=='review' else 'queued') if approved else 'held'
             db.execute('UPDATE messages SET state=?,error=?,human_revision=NULL WHERE id=?',(state,'' if approved else result['reason'][:400],mid))
-            if row['kind']=='initial':db.execute("UPDATE contacts SET state=?,runtime_error=? WHERE id=? AND state NOT IN ('paused','suppressed','deleted')",('queued' if approved else 'candidate','' if approved else result['reason'][:400],row['contact_id']))
+            if row['kind']=='initial':db.execute("UPDATE contacts SET state=?,runtime_error=? WHERE id=? AND state NOT IN ('paused','suppressed','deleted','archived')",('queued' if approved else 'candidate','' if approved else result['reason'][:400],row['contact_id']))
             self.remember(mid,db)
         return approved
     def approved(self,row,db=None):

@@ -88,6 +88,8 @@ class Worker:
             self.store.set_state('worker_heartbeat',time.time())
     def _tick(self):
         now=time.time();self.store.set_state('worker_heartbeat',now);cfg=self.config.get()
+        from .candidate_lifecycle import archive_expired
+        archive_expired(self.store,cfg['max_source_age_days'],now)
         # Sync first, so unsubscribe replies can cancel queued work before the send attempt.
         if cfg['imap_host'] and self.config.secret('imap_password'):
             try:self.poll_once()
@@ -102,7 +104,8 @@ class Worker:
                 try:self.engine.process_inbound(inbound['id'])
                 except BudgetExceeded:pass
         if not worked and cfg['research_enabled']:
-            ready=self.store.one("SELECT c.id FROM contacts c WHERE c.state='ready' AND c.historical=0 AND NOT EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=c.id AND m.kind IN ('initial','historical')) AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.kind='draft' AND j.state IN ('queued','running') AND json_extract(j.payload,'$.contact_id')=c.id) ORDER BY c.id LIMIT 1")
+            candidates=self.store.all("SELECT c.* FROM contacts c WHERE c.state='ready' AND c.historical=0 AND json_extract(c.evidence_json,'$.qualification.status')='contactable' AND NOT EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=c.id AND m.kind IN ('initial','historical')) AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.kind='draft' AND j.state IN ('queued','running') AND json_extract(j.payload,'$.contact_id')=c.id) ORDER BY c.id")
+            ready=next((c for c in candidates if self.engine.eligible(c,cfg,now)),None)
             if ready:
                 self.store.job('draft',{'contact_id':ready['id']});worked=True
             elif now-self.store.state('last_research_attempt',0)>cfg['research_interval_minutes']*60:
@@ -120,13 +123,13 @@ class Worker:
             self.store.execute("UPDATE messages SET body='[超过保留期限，正文已清理]',new_text='',final_body='',wire=NULL,auth_result='',notes='' WHERE created_at<? AND state NOT IN ('queued','draft','new','human_review','uncertain','held') AND kind!='historical'",(cutoff,))
             from .evidence import purge_contact
             with self.store.tx() as db:
-                for c in db.execute("SELECT id FROM contacts WHERE updated_at<? AND NOT EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=contacts.id AND m.state IN ('queued','draft','new','human_review','uncertain','held'))",(cutoff,)).fetchall():purge_contact(db,c['id'])
+                for c in db.execute("SELECT id FROM contacts WHERE state!='archived' AND updated_at<? AND NOT EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=contacts.id AND m.state IN ('queued','draft','new','human_review','uncertain','held'))",(cutoff,)).fetchall():purge_contact(db,c['id'])
                 db.execute("DELETE FROM draft_revisions WHERE message_id IN (SELECT id FROM messages WHERE body='[超过保留期限，正文已清理]')")
                 db.execute("DELETE FROM reviews WHERE message_id IN (SELECT id FROM messages WHERE body='[超过保留期限，正文已清理]')")
                 db.execute("UPDATE messages SET evidence='',error='' WHERE body='[超过保留期限，正文已清理]'")
                 db.execute('DELETE FROM briefs WHERE created_at<?',(cutoff,))
                 db.execute('DELETE FROM assets WHERE created_at<?',(cutoff,))
-                db.execute('DELETE FROM evidence_sources WHERE retrieved_at<?',(cutoff,))
+                db.execute("DELETE FROM evidence_sources WHERE retrieved_at<? AND contact_id NOT IN (SELECT id FROM contacts WHERE state='archived')",(cutoff,))
             self.store.set_state('last_retention_run',now)
         self.store.set_state('worker_heartbeat',time.time())
     def run(self):

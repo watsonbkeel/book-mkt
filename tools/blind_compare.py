@@ -57,7 +57,8 @@ def run(output,*,live=False,profile_file=None,candidate_ids=None,max_calls=None,
                 Profiles(config).route({t:p['id'] for t in ('brief','compose','review')})
                 for index in ids:
                     topic=TOPICS[index-1];name=f'Example Adult {index}';text=f'{name} works with {topic}.'
-                    cid=store.add_contact(name=name,email=f'person{index}@candidate{index}-{p["id"]}.example',eligibility='consent',permission_note='Synthetic consent for offline evaluation only',state='ready')
+                    qualification={'verification_version':3,'profile_match':{'status':'matched','quote':text,'source_url':'https://example.com/'+str(index),'reason':'Synthetic source evidence.'},'qualification':{'status':'contactable','reasons':[]}}
+                    cid=store.add_contact(name=name,email=f'person{index}@candidate{index}-{p["id"]}.example',eligibility='consent',permission_note='Synthetic consent for offline evaluation only',state='ready',verified_at=time.time(),evidence_json=json.dumps(qualification))
                     store.execute('INSERT INTO evidence_sources(id,contact_id,url,retrieved_at,page_hash,text,content_hash) VALUES(?,?,?,?,?,?,?)',(str(cid),cid,'https://example.com/'+str(index),time.time(),digest(text),text,digest(text)))
                     ai=AI(store,config,None if live else MockHTTP());engine=Engine(store,config,ai=ai)
                     start=time.monotonic();mid=engine.draft_initial(cid);row=store.message(mid)

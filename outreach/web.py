@@ -19,8 +19,9 @@ from .reports import summary,daily_series,status_markdown,schedule_snapshot,tren
 from .safety import record_event,clear_circuit
 from .domain import validate_initial,safe_header
 from .domain import csv_safe,normalize_email,policy_text_guard,BOOK_TITLE,CHAPTERS,range_bounds
+from .qualification import annotate,summary as qualification_summary,with_human_fit_quote,with_permission
 
-STATE_NAMES={'candidate':'待核实','ready':'可起草','queued':'排队','contacted':'已联系','paused':'暂停','suppressed':'已停发','deleted':'已匿名','draft':'待审核','sending':'正在提交SMTP','accepted':'SMTP已接受','uncertain':'提交结果不确定','held':'需人工处理','cancelled':'已取消','historical':'用户报告历史','new':'待分类','human_review':'需人工处理','ignored':'不自动回复','processed':'已处理','superseded':'被更新来信取代','done':'完成','failed':'失败','running':'执行中','rejected':'SMTP明确拒绝','deferred':'SMTP临时拒绝（未重试）'}
+STATE_NAMES={'archived':'已归档','candidate':'待核实','ready':'可起草','queued':'排队','contacted':'已联系','paused':'暂停','suppressed':'已停发','deleted':'已匿名','draft':'待审核','sending':'正在提交SMTP','accepted':'SMTP已接受','uncertain':'提交结果不确定','held':'需人工处理','cancelled':'已取消','historical':'用户报告历史','new':'待分类','human_review':'需人工处理','ignored':'不自动回复','processed':'已处理','superseded':'被更新来信取代','done':'完成','failed':'失败','running':'执行中','rejected':'SMTP明确拒绝','deferred':'SMTP临时拒绝（未重试）'}
 SETTING_GROUPS=[
  ('发件身份与合法联系范围',[('sender_name','发件显示名','text'),('company_name','公司/组织名称（可留空，不由AI编造）','text'),('sender_email','发件/回复邮箱','email'),('postal_address','真实邮寄地址（自动附在邮件底部）','textarea'),('public_url','可选：本系统HTTPS公网地址，用于退订；不是资源站地址','url'),('outreach_scope','自动联系范围','scope'),('scope_confirmed','我已核实适用地区、个人数据和联系规则，承担本次外发责任','checkbox'),('sender_auth_confirmed','邮件服务允许此用途；SPF/DKIM/DMARC和退订收信已核查','checkbox')]),
  ('SMTP发信',[('smtp_host','SMTP主机','text'),('smtp_port','端口','number'),('smtp_security','传输加密','security'),('smtp_username','用户名','text'),('smtp_password','应用密码/SMTP密码（留空保留）','password')]),
@@ -179,8 +180,11 @@ def create_app(data_dir=None,secure_cookie=None):
         if q:conditions.append('(c.name LIKE ? OR c.email LIKE ?)');args.extend(['%'+q+'%']*2)
         if reply=='yes':conditions.append("EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=c.id AND m.direction='inbound' AND m.kind='human')")
         page_num=max(1,min(10000,int(request.query_params.get('p','1'))));where=' WHERE '+' AND '.join(conditions) if conditions else ''
-        rows=store.all('SELECT c.*,(SELECT COUNT(*) FROM messages m WHERE m.contact_id=c.id AND m.direction=\'inbound\' AND m.kind=\'human\') AS reply_count FROM contacts c'+where+' ORDER BY c.id DESC LIMIT 30 OFFSET ?',args+[(page_num-1)*30])
-        return render(request,'contacts.html',rows=rows,state=state,reply=reply,q=q,p=page_num)
+        rows=store.all('SELECT c.*,(SELECT COUNT(*) FROM messages m WHERE m.contact_id=c.id AND m.direction=\'inbound\' AND m.kind=\'human\') AS reply_count,(SELECT COUNT(*) FROM evidence_sources e WHERE e.contact_id=c.id AND e.active=1) AS active_snapshot_count FROM contacts c'+where+' ORDER BY c.id DESC LIMIT 30 OFFSET ?',args+[(page_num-1)*30])
+        scope=config.get()['outreach_scope'];max_age=config.get()['max_source_age_days'];now=time.time()
+        rows=[annotate(row,scope,max_age,now) for row in rows]
+        qualification=qualification_summary(store.all("SELECT c.state,c.eligibility,c.evidence_json,c.historical,c.verified_at,(SELECT COUNT(*) FROM evidence_sources e WHERE e.contact_id=c.id AND e.active=1) AS active_snapshot_count FROM contacts c"),scope,max_age,now)
+        return render(request,'contacts.html',rows=rows,state=state,reply=reply,q=q,p=page_num,qualification=qualification)
     @app.post('/contacts/add')
     async def contacts_add(request:Request):
         d=await form(request);name=str(d.get('name','')).strip();note=str(d.get('permission_note','')).strip();email=normalize_email(d.get('email',''))
@@ -189,7 +193,7 @@ def create_app(data_dir=None,secure_cookie=None):
         if consent and len(note)<12:raise ValueError('记录真实许可来源和日期，不是只写“同意”。')
         url=str(d.get('source_url','')).strip()
         if url and (urlsplit(url).scheme!='https' or not urlsplit(url).hostname):raise ValueError('来源网址需要HTTPS')
-        cid=store.add_contact(name=name,email=email,persona=str(d.get('persona','operator')),source_url=url,fit_excerpt=str(d.get('fit_excerpt',''))[:800],bio=str(d.get('bio',''))[:800],eligibility='consent' if consent else 'review',permission_note=note,state='ready' if consent else 'candidate')
+        cid=store.add_contact(name=name,email=email,persona=str(d.get('persona','operator')),source_url=url,fit_excerpt=str(d.get('fit_excerpt',''))[:800],bio=str(d.get('bio',''))[:800],eligibility='consent' if consent else 'review',permission_note=note,state='candidate')
         return back('/contacts/'+str(cid),'联系人已保存；只有有效许可/来源才能进入发送。')
     @app.post('/import-history')
     async def history_import(request:Request):await form(request);n=import_history(store);return back('/contacts',f'已导入{n}位历史联系人；不计为系统新发送，禁止再次首封邀请。')
@@ -197,7 +201,13 @@ def create_app(data_dir=None,secure_cookie=None):
     async def detail(request:Request,cid:int):
         require(request);c=store.contact(cid)
         if not c:raise HTTPException(404)
-        return render(request,'contact.html',c=c,messages=store.all('SELECT * FROM messages WHERE contact_id=? ORDER BY id',(cid,)),evidence=json.loads(c['evidence_json']),eligible=Engine(store,config).eligible(c,config.get(),time.time()))
+        evidence=json.loads(c['evidence_json']);c['active_snapshot_count']=store.one('SELECT COUNT(*) n FROM evidence_sources WHERE contact_id=? AND active=1',(cid,))['n']
+        annotate(c,config.get()['outreach_scope'],config.get()['max_source_age_days'],time.time())
+        from .evidence import sources as evidence_sources
+        try:snapshots=evidence_sources(store,cid,config.get()['max_source_age_days'])
+        except ValueError:snapshots=[]
+        if c['state']=='archived':snapshots=store.all('SELECT * FROM evidence_sources WHERE contact_id=? ORDER BY retrieved_at DESC',(cid,))
+        return render(request,'contact.html',c=c,messages=store.all('SELECT * FROM messages WHERE contact_id=? ORDER BY id',(cid,)),evidence=evidence,snapshots=snapshots,eligible=Engine(store,config).eligible(c,config.get(),time.time()))
     @app.post('/contacts/{cid}/action')
     async def contact_action(request:Request,cid:int):
         d=await form(request);action=d.get('action');c=store.contact(cid)
@@ -213,7 +223,28 @@ def create_app(data_dir=None,secure_cookie=None):
             note=str(d.get('permission_note','')).strip()
             if not d.get('confirmed') or len(note)<12:raise ValueError('必须记录真实许可来源并确认')
             if store.is_suppressed(cid):raise ValueError('已退订联系人不能用此操作重新激活')
-            store.update_contact(cid,eligibility='consent',permission_note=note,state='contacted' if c['historical'] else 'ready')
+            updated_evidence=with_permission(c['evidence_json'])
+            updated=dict(c,evidence_json=updated_evidence,eligibility='consent',permission_note=note,
+                         active_snapshot_count=store.one('SELECT COUNT(*) n FROM evidence_sources WHERE contact_id=? AND active=1',(cid,))['n'])
+            from .qualification import effective_status
+            status=effective_status(updated,config.get()['outreach_scope'],time.time(),config.get()['max_source_age_days'])
+            store.update_contact(cid,eligibility='consent',permission_note=note,evidence_json=updated_evidence,
+                                 state='contacted' if c['historical'] else (c['state'] if c['state'] in ('paused','archived') else ('ready' if status=='contactable' else 'candidate')))
+        elif action=='fit_quote':
+            if c['historical'] or c['state'] in ('paused','suppressed','deleted','archived') or store.is_suppressed(cid):raise ValueError('历史/暂停/停发联系人不能重新核实匹配引文')
+            quote=' '.join(str(d.get('fit_quote','')).split())
+            if len(quote)<12:raise ValueError('匹配引文至少需要12个字符')
+            from .evidence import sources as evidence_sources
+            snapshots=evidence_sources(store,cid,config.get()['max_source_age_days'])
+            if not any(quote in source['text'] for source in snapshots):raise ValueError('引文必须逐字来自当前保存的原文快照')
+            updated_evidence=with_human_fit_quote(c['evidence_json'],quote)
+            verified_at=max((source['retrieved_at'] for source in snapshots),default=c['verified_at'])
+            updated=dict(c,evidence_json=updated_evidence,fit_excerpt=quote,verified_at=verified_at,active_snapshot_count=len(snapshots))
+            from .qualification import effective_status
+            status=effective_status(updated,config.get()['outreach_scope'],time.time(),config.get()['max_source_age_days'])
+            eligibility='consent' if c['eligibility']=='consent' else ('us_public' if c['country']=='US' and config.get()['outreach_scope']=='us_business_public' and status=='contactable' else c['eligibility'])
+            store.update_contact(cid,fit_excerpt=quote,evidence_json=updated_evidence,verified_at=verified_at,eligibility=eligibility,
+                                 state='contacted' if c['historical'] else (c['state'] if c['state'] in ('paused','archived') else ('ready' if status=='contactable' else 'candidate')))
         elif action=='draft':store.job('draft',{'contact_id':cid})
         elif action=='asset':store.job('create_asset',{'contact_id':cid})
         elif action=='verify':store.job('verify_contact',{'contact_id':cid})

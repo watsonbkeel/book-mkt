@@ -71,9 +71,9 @@ def test_research_profile_edits_do_not_invalidate_written_mail(setup):
 
 def test_reply_calls_unlimited_and_excluded_from_150_marketing_budget(setup):
     s,c,cid,e,w=setup;c.update({'daily_api_calls':150,'daily_research_calls':30});a=AI(s,c)
-    for _ in range(50):a.reserve('llm',purpose='research_continuation')
+    for _ in range(30):a.reserve('research')
     with pytest.raises(BudgetExceeded):a.reserve('research')
-    for _ in range(100):a.reserve('llm',purpose='initial_review')
+    for _ in range(120):a.reserve('llm',purpose='initial_review')
     with pytest.raises(BudgetExceeded):a.reserve('llm',purpose='brief')
     for purpose in ('classification','reply','reply_review'):
         for _ in range(210):a.reserve('llm',purpose=purpose)
@@ -81,6 +81,12 @@ def test_reply_calls_unlimited_and_excluded_from_150_marketing_budget(setup):
     from outreach.reports import schedule_snapshot
     assert schedule_snapshot(s,c)['production']['api_used']==150
     assert s.one('SELECT count(*) n FROM api_usage')['n']==780
+
+def test_research_specific_cap_can_be_raised_to_shared_marketing_cap(setup):
+    s,c,cid,e,w=setup;c.update({'daily_api_calls':150,'daily_research_calls':150});a=AI(s,c)
+    for _ in range(150):a.reserve('research')
+    with pytest.raises(BudgetExceeded):a.reserve('research')
+    assert s.one('SELECT count(*) n FROM api_usage')['n']==150
 
 
 def test_sends_are_attempted_before_slow_research(setup,monkeypatch):

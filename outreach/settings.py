@@ -25,7 +25,7 @@ DEFAULTS={
 SECRETS={'smtp_password','imap_password','api_key','brave_api_key'}
 BOOLS={k for k,v in DEFAULTS.items() if isinstance(v,bool)}
 INTS={k for k,v in DEFAULTS.items() if isinstance(v,int) and not isinstance(v,bool)}
-RANGES={'evidence_source_chars':(500,8000),'evidence_contact_chars':(1000,16000),'evidence_task_chars':(8000,64000),'research_interval_minutes':(30,1440),'domain_cooldown_days':(365,730),'daily_limit':(1,10),'gap_minutes':(61,240),'daily_reply_limit':(1,30),'reply_gap_minutes':(2,120),'max_thread_replies':(1,5),'daily_thread_replies':(1,3),'daily_api_calls':(5,200),'daily_research_calls':(1,50),'native_search_call_limit':(1,12),'daily_fetches':(5,100),'research_batch_size':(1,8),'queue_target':(5,40),'max_source_age_days':(1,30),'retention_days':(30,365),'smtp_port':(1,65535),'imap_port':(1,65535)}
+RANGES={'evidence_source_chars':(500,8000),'evidence_contact_chars':(1000,16000),'evidence_task_chars':(8000,64000),'research_interval_minutes':(30,1440),'domain_cooldown_days':(365,730),'daily_limit':(1,10),'gap_minutes':(61,240),'daily_reply_limit':(1,30),'reply_gap_minutes':(2,120),'max_thread_replies':(1,5),'daily_thread_replies':(1,3),'daily_api_calls':(5,200),'daily_research_calls':(1,150),'native_search_call_limit':(1,12),'daily_fetches':(5,500),'research_batch_size':(1,8),'queue_target':(5,40),'max_source_age_days':(1,30),'retention_days':(30,365),'smtp_port':(1,65535),'imap_port':(1,65535)}
 class Config:
  def __init__(self,store,data_dir):
   self.store=store;self.dir=Path(data_dir);self.dir.mkdir(parents=True,exist_ok=True);keyfile=self.dir/'master.key'

@@ -13,16 +13,20 @@ from .safety import domain_conflict, record_event, trip
 
 from .generation import Generation
 from .contracts import framed
+from .qualification import evidence_data
 
 class Engine(Generation):
     def __init__(self,store,config,ai=None,smtp=None,imap=None):
         self.store=store;self.config=config;self.ai=ai or AI(store,config);self.smtp=smtp or SMTPTransport(config);self.imap=imap or IMAPTransport(config)
     def eligible(self,contact,cfg,now):
-        if not contact or contact['state'] in ('suppressed','paused','deleted') or self.store.is_suppressed(contact['id']):return False
-        if contact['eligibility']=='consent':return bool(contact['permission_note'].strip()) and not contact['permission_note'].startswith('草稿失败：')
+        if not contact or contact['state'] in ('suppressed','paused','deleted','archived') or self.store.is_suppressed(contact['id']):return False
         try:verified=json.loads(contact['evidence_json']).get('verification_version')==SOURCE_VERIFICATION_VERSION
         except (ValueError,TypeError):verified=False
-        return bool(verified and contact['eligibility']=='us_public' and cfg['outreach_scope']=='us_business_public' and contact['verified_at'] and now-contact['verified_at']<=cfg['max_source_age_days']*86400)
+        _,_,qualification=evidence_data(contact)
+        snapshots=self.store.one('SELECT COUNT(*) n FROM evidence_sources WHERE contact_id=? AND active=1',(contact['id'],))['n']
+        if not (verified and qualification.get('status')=='contactable' and snapshots and contact['verified_at'] and now-contact['verified_at']<=cfg['max_source_age_days']*86400):return False
+        if contact['eligibility']=='consent':return bool(contact['permission_note'].strip()) and not contact['permission_note'].startswith('草稿失败：')
+        return bool(contact['eligibility']=='us_public' and cfg['outreach_scope']=='us_business_public')
     def ingest(self,raw,*,account_key,uid,uidvalidity):
         parsed=parse_email(raw)
         old=self.store.one('SELECT id FROM messages WHERE message_id=? OR (account_key=? AND uidvalidity=? AND uid=?)',(parsed['message_id'],account_key,str(uidvalidity),uid))
@@ -138,7 +142,7 @@ class Engine(Generation):
             if terminal:last=max(last or 0,float(json.loads(terminal[0])))
             for raw in db.execute("SELECT * FROM messages WHERE direction='outbound' AND state='queued' AND (? IS NULL OR id=?) ORDER BY CASE WHEN kind IN ('reply','manual') THEN 0 ELSE 1 END,id LIMIT 30",(only_message_id,only_message_id)).fetchall():
                 row=dict(raw);contact=dict(db.execute('SELECT * FROM contacts WHERE id=?',(row['contact_id'],)).fetchone())
-                if db.execute('SELECT 1 FROM suppressions WHERE email_hash=?',(contact['email_hash'],)).fetchone() or contact['state'] in ('paused','suppressed','deleted'):
+                if db.execute('SELECT 1 FROM suppressions WHERE email_hash=?',(contact['email_hash'],)).fetchone() or contact['state'] in ('paused','suppressed','deleted','archived'):
                     db.execute("UPDATE messages SET state='cancelled',error='paused/suppressed' WHERE id=?",(row['id'],));continue
                 if row['origin']=='ai':
                     source_rows=db.execute('SELECT * FROM evidence_sources WHERE contact_id=? AND active=1',(row['contact_id'],)).fetchall()
@@ -222,7 +226,7 @@ class Engine(Generation):
         finished=now if injected_clock else time.time()
         self.store.update_message(row['id'],state='accepted',sent_at=finished)
         if row['kind']=='initial':self.store.set_state('last_initial_terminal',finished)
-        self.store.execute("UPDATE contacts SET state='contacted',updated_at=? WHERE id=? AND state NOT IN ('paused','suppressed','deleted')",(finished,contact['id']))
+        self.store.execute("UPDATE contacts SET state='contacted',updated_at=? WHERE id=? AND state NOT IN ('paused','suppressed','deleted','archived')",(finished,contact['id']))
         self.store.audit('smtp_accepted',f"message={row['id']}; kind={row['kind']}")
         return 'accepted'
     def recover(self):

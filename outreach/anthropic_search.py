@@ -25,9 +25,10 @@ def messages_call(ai, cfg, key, model, instructions, prompt, usage_id, *, resear
     for turn in range(max_turns):
         if turn:
             checkpoint(request=True)
-            current_id = ai.reserve('llm',purpose='research_continuation' if research else cfg.get('task'))
+            continuation_purpose='research_continuation' if research else cfg.get('task')
+            current_id = ai.reserve('llm',purpose=continuation_purpose)
             ai.store.execute('UPDATE api_usage SET model=?,purpose=? WHERE id=?',
-                             (model, 'research_continuation', current_id))
+                             (model, continuation_purpose, current_id))
         payload = {
             'model':model,
             'system':instructions + ' Return the final answer as one JSON object, no prose or markdown.',

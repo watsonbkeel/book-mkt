@@ -1,3 +1,11 @@
+# Local pending authorization — candidate qualification
+
+- Change research profile selection to a repeating 6/3/1 split across ten attempts while retaining all thirteen countries, the configured research period, and existing budgets.
+- Separate source-backed profile fit from contact permission. Preserve high-relevance candidates with evidence/permission tasks and block them from Worker drafting until all checks pass.
+- Save bounded research snapshots even when the proposed fit quote misses; add authenticated snapshot quote verification and candidate qualification counts.
+- Permit official school/employer staff pages to establish identity and current role across different profile/email domains. Keep source-domain, published-email, MX, location, role-mailbox, source-restriction, opt-out, and contact-permission guards.
+- No database schema change. Local tests only; no live search, API call, mailbox access, message delivery, or deployment.
+
 # 1.3.0 — evidence-to-email upgrade (2026-09-25)
 
 - Add bounded research snapshots, evidence briefs, complete model-written subject/body and one directed revision. Preserve actual prose and final MIME.

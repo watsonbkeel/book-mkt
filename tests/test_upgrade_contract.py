@@ -80,7 +80,8 @@ def test_failed_generation_keeps_consent_and_holds(env,error):
 
 def test_missing_evidence_no_bio_fallback(env):
     s,c,cid,e=env;s.execute('DELETE FROM evidence_sources');s.update_contact(cid,bio='An invented award',fit_reason='Amazing invented outcomes')
-    mid=e.draft_initial(cid);assert s.message(mid)['state']=='held'
+    with pytest.raises(ValueError,match='Contact not eligible'):e.draft_initial(cid)
+    assert not s.all("SELECT * FROM messages WHERE contact_id=? AND kind='initial'",(cid,))
     assert not s.all('SELECT * FROM reviews') and e.dispatch()=='waiting'
 
 def test_semantic_mismatch_rejected_even_when_quote_exists(env):

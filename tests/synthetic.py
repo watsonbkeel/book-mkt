@@ -10,6 +10,10 @@ BODY=('Your work on practical workflow tools suggests a useful setting for explo
 def seed(store,cid):
     sid='synthetic-'+str(cid)
     store.execute('INSERT OR IGNORE INTO evidence_sources(id,contact_id,url,retrieved_at,page_hash,text,content_hash) VALUES(?,?,?,?,?,?,?)',(sid,cid,'https://example.com/about',time.time(),digest(TEXT),TEXT,digest(TEXT)))
+    contact=store.contact(cid);evidence=json.loads(contact['evidence_json'] or '{}')
+    evidence.update(verification_version=3,profile_match={'status':'matched','quote':TEXT,'source_url':'https://example.com/about','reason':'Synthetic exact source evidence.'},
+                    qualification={'status':'contactable','reasons':[]})
+    store.update_contact(cid,evidence_json=json.dumps(evidence),verified_at=contact['verified_at'] or time.time())
     return store.one('SELECT * FROM evidence_sources WHERE id=?',(sid,))
 def verdict(approved=True):
     return {'approved':approved,'hard_failures':[] if approved else ['Unsupported statement'], 'reason':'Synthetic check' if approved else 'Correct unsupported statement','quality':dict(relevance=4,specificity=4,naturalness=4,reply_burden=4)}
