@@ -138,7 +138,7 @@ class MockHTTP:
 
 def install_profiles(store,config,source_db,master_key):
     if not source_db or not master_key:raise ValueError('Live preview requires read-only configured profile source and master key')
-    uri='file:'+str(Path(source_db).resolve())+'?mode=ro'
+    uri='file:'+str(Path(source_db).resolve())+'?mode=ro&immutable=1'
     with sqlite3.connect(uri,uri=True) as source:
         source.row_factory=sqlite3.Row
         routes=[dict(row) for row in source.execute("SELECT * FROM task_routes WHERE task IN ('brief','compose','review','reply','classification')")]
