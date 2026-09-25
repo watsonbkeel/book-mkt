@@ -1,0 +1,968 @@
+{
+  "mode": "mock",
+  "source": "tools/blind_compare.py via AI adapter + Engine generation/review",
+  "real_api_calls": 0,
+  "real_smtp_sends": 0,
+  "samples": [
+    {
+      "blind_id": "B001",
+      "candidate_id": 4,
+      "subject": "A planning idea for writing revision courses",
+      "body": "Your work with writing revision courses offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+      "complete_preview": "Hi Example,\n\nYour work with writing revision courses offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?\n\nBest,\nHuashan Chen\n\n—\nHuashan Chen · Author of Use AI to Direct AI\n\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\nSynthetic evaluation only\nTo stop these messages, reply STOP.",
+      "state": "draft",
+      "materials_hash": "d40514e9db59bb9ebb7d00eb94cc16f5e45138c86e5ecdf8fb8a05b2b32f4943",
+      "review": [
+        {
+          "approved": true,
+          "hard_failures": [],
+          "reason": "Synthetic reviewer accepts supplied literal evidence and hypothetical use.",
+          "quality": {
+            "relevance": 4,
+            "specificity": 4,
+            "naturalness": 4,
+            "reply_burden": 4
+          }
+        }
+      ],
+      "elapsed_ms": 55,
+      "metadata": {
+        "copy": {
+          "subject": "A planning idea for writing revision courses",
+          "body": "Your work with writing revision courses offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+          "recipient_claims": [
+            {
+              "statement": "Works with writing revision courses",
+              "source_id": "4",
+              "quote": "Example Adult 4 works with writing revision courses."
+            }
+          ],
+          "book_fact_ids": [
+            "title",
+            "publication",
+            "method"
+          ],
+          "selected_chapter_ids": [
+            10
+          ],
+          "offered_next_step": "chapter_recommendation",
+          "asset_id": null,
+          "asset_version": null
+        },
+        "brief": {
+          "verified_facts": [
+            {
+              "statement": "Works with writing revision courses",
+              "source_id": "4",
+              "quote": "Example Adult 4 works with writing revision courses."
+            }
+          ],
+          "relevant_work_topic": "writing revision courses",
+          "possible_use_cases": [
+            "Could sketch a small prototype and check it"
+          ],
+          "unknowns": [
+            "Current project priorities"
+          ]
+        },
+        "contract": 3
+      }
+    },
+    {
+      "blind_id": "B002",
+      "candidate_id": 1,
+      "subject": "A planning idea for client follow-up tools",
+      "body": "Your work with client follow-up tools offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+      "complete_preview": "Hi Example,\n\nYour work with client follow-up tools offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?\n\nBest,\nHuashan Chen\n\n—\nHuashan Chen · Author of Use AI to Direct AI\n\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\nSynthetic evaluation only\nTo stop these messages, reply STOP.",
+      "state": "draft",
+      "materials_hash": "e71122da0a6586d70a9f6fdadb8c291661c5d068edcb12302813121ed84fb2d6",
+      "review": [
+        {
+          "approved": true,
+          "hard_failures": [],
+          "reason": "Synthetic reviewer accepts supplied literal evidence and hypothetical use.",
+          "quality": {
+            "relevance": 4,
+            "specificity": 4,
+            "naturalness": 4,
+            "reply_burden": 4
+          }
+        }
+      ],
+      "elapsed_ms": 46,
+      "metadata": {
+        "copy": {
+          "subject": "A planning idea for client follow-up tools",
+          "body": "Your work with client follow-up tools offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+          "recipient_claims": [
+            {
+              "statement": "Works with client follow-up tools",
+              "source_id": "6",
+              "quote": "Example Adult 1 works with client follow-up tools."
+            }
+          ],
+          "book_fact_ids": [
+            "title",
+            "publication",
+            "method"
+          ],
+          "selected_chapter_ids": [
+            10
+          ],
+          "offered_next_step": "chapter_recommendation",
+          "asset_id": null,
+          "asset_version": null
+        },
+        "brief": {
+          "verified_facts": [
+            {
+              "statement": "Works with client follow-up tools",
+              "source_id": "6",
+              "quote": "Example Adult 1 works with client follow-up tools."
+            }
+          ],
+          "relevant_work_topic": "client follow-up tools",
+          "possible_use_cases": [
+            "Could sketch a small prototype and check it"
+          ],
+          "unknowns": [
+            "Current project priorities"
+          ]
+        },
+        "contract": 3
+      }
+    },
+    {
+      "blind_id": "B003",
+      "candidate_id": 5,
+      "subject": "A planning idea for small software prototypes",
+      "body": "Your work with small software prototypes offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+      "complete_preview": "Hi Example,\n\nYour work with small software prototypes offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?\n\nBest,\nHuashan Chen\n\n—\nHuashan Chen · Author of Use AI to Direct AI\n\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\nSynthetic evaluation only\nTo stop these messages, reply STOP.",
+      "state": "draft",
+      "materials_hash": "e456b1152d1736319f8947b19a6fa9e3888ba9038e415315d821065cf857ea2d",
+      "review": [
+        {
+          "approved": true,
+          "hard_failures": [],
+          "reason": "Synthetic reviewer accepts supplied literal evidence and hypothetical use.",
+          "quality": {
+            "relevance": 4,
+            "specificity": 4,
+            "naturalness": 4,
+            "reply_burden": 4
+          }
+        }
+      ],
+      "elapsed_ms": 48,
+      "metadata": {
+        "copy": {
+          "subject": "A planning idea for small software prototypes",
+          "body": "Your work with small software prototypes offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+          "recipient_claims": [
+            {
+              "statement": "Works with small software prototypes",
+              "source_id": "15",
+              "quote": "Example Adult 5 works with small software prototypes."
+            }
+          ],
+          "book_fact_ids": [
+            "title",
+            "publication",
+            "method"
+          ],
+          "selected_chapter_ids": [
+            10
+          ],
+          "offered_next_step": "chapter_recommendation",
+          "asset_id": null,
+          "asset_version": null
+        },
+        "brief": {
+          "verified_facts": [
+            {
+              "statement": "Works with small software prototypes",
+              "source_id": "15",
+              "quote": "Example Adult 5 works with small software prototypes."
+            }
+          ],
+          "relevant_work_topic": "small software prototypes",
+          "possible_use_cases": [
+            "Could sketch a small prototype and check it"
+          ],
+          "unknowns": [
+            "Current project priorities"
+          ]
+        },
+        "contract": 3
+      }
+    },
+    {
+      "blind_id": "B004",
+      "candidate_id": 4,
+      "subject": "A planning idea for writing revision courses",
+      "body": "Your work with writing revision courses offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+      "complete_preview": "Hi Example,\n\nYour work with writing revision courses offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?\n\nBest,\nHuashan Chen\n\n—\nHuashan Chen · Author of Use AI to Direct AI\n\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\nSynthetic evaluation only\nTo stop these messages, reply STOP.",
+      "state": "draft",
+      "materials_hash": "d40514e9db59bb9ebb7d00eb94cc16f5e45138c86e5ecdf8fb8a05b2b32f4943",
+      "review": [
+        {
+          "approved": true,
+          "hard_failures": [],
+          "reason": "Synthetic reviewer accepts supplied literal evidence and hypothetical use.",
+          "quality": {
+            "relevance": 4,
+            "specificity": 4,
+            "naturalness": 4,
+            "reply_burden": 4
+          }
+        }
+      ],
+      "elapsed_ms": 48,
+      "metadata": {
+        "copy": {
+          "subject": "A planning idea for writing revision courses",
+          "body": "Your work with writing revision courses offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+          "recipient_claims": [
+            {
+              "statement": "Works with writing revision courses",
+              "source_id": "14",
+              "quote": "Example Adult 4 works with writing revision courses."
+            }
+          ],
+          "book_fact_ids": [
+            "title",
+            "publication",
+            "method"
+          ],
+          "selected_chapter_ids": [
+            10
+          ],
+          "offered_next_step": "chapter_recommendation",
+          "asset_id": null,
+          "asset_version": null
+        },
+        "brief": {
+          "verified_facts": [
+            {
+              "statement": "Works with writing revision courses",
+              "source_id": "14",
+              "quote": "Example Adult 4 works with writing revision courses."
+            }
+          ],
+          "relevant_work_topic": "writing revision courses",
+          "possible_use_cases": [
+            "Could sketch a small prototype and check it"
+          ],
+          "unknowns": [
+            "Current project priorities"
+          ]
+        },
+        "contract": 3
+      }
+    },
+    {
+      "blind_id": "B005",
+      "candidate_id": 3,
+      "subject": "A planning idea for research source checking",
+      "body": "Your work with research source checking offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+      "complete_preview": "Hi Example,\n\nYour work with research source checking offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?\n\nBest,\nHuashan Chen\n\n—\nHuashan Chen · Author of Use AI to Direct AI\n\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\nSynthetic evaluation only\nTo stop these messages, reply STOP.",
+      "state": "draft",
+      "materials_hash": "af2d4548e36c0e210e6463e990c1626150e522f8248c3fd3e152a371671ed3df",
+      "review": [
+        {
+          "approved": true,
+          "hard_failures": [],
+          "reason": "Synthetic reviewer accepts supplied literal evidence and hypothetical use.",
+          "quality": {
+            "relevance": 4,
+            "specificity": 4,
+            "naturalness": 4,
+            "reply_burden": 4
+          }
+        }
+      ],
+      "elapsed_ms": 48,
+      "metadata": {
+        "copy": {
+          "subject": "A planning idea for research source checking",
+          "body": "Your work with research source checking offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+          "recipient_claims": [
+            {
+              "statement": "Works with research source checking",
+              "source_id": "13",
+              "quote": "Example Adult 3 works with research source checking."
+            }
+          ],
+          "book_fact_ids": [
+            "title",
+            "publication",
+            "method"
+          ],
+          "selected_chapter_ids": [
+            10
+          ],
+          "offered_next_step": "chapter_recommendation",
+          "asset_id": null,
+          "asset_version": null
+        },
+        "brief": {
+          "verified_facts": [
+            {
+              "statement": "Works with research source checking",
+              "source_id": "13",
+              "quote": "Example Adult 3 works with research source checking."
+            }
+          ],
+          "relevant_work_topic": "research source checking",
+          "possible_use_cases": [
+            "Could sketch a small prototype and check it"
+          ],
+          "unknowns": [
+            "Current project priorities"
+          ]
+        },
+        "contract": 3
+      }
+    },
+    {
+      "blind_id": "B006",
+      "candidate_id": 2,
+      "subject": "A planning idea for adult AI learning workshops",
+      "body": "Your work with adult AI learning workshops offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+      "complete_preview": "Hi Example,\n\nYour work with adult AI learning workshops offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?\n\nBest,\nHuashan Chen\n\n—\nHuashan Chen · Author of Use AI to Direct AI\n\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\nSynthetic evaluation only\nTo stop these messages, reply STOP.",
+      "state": "draft",
+      "materials_hash": "130936b79b3ffd6c88adc4b92015ede563d7b487b14d4cd4219deaaae1edc26c",
+      "review": [
+        {
+          "approved": true,
+          "hard_failures": [],
+          "reason": "Synthetic reviewer accepts supplied literal evidence and hypothetical use.",
+          "quality": {
+            "relevance": 4,
+            "specificity": 4,
+            "naturalness": 4,
+            "reply_burden": 4
+          }
+        }
+      ],
+      "elapsed_ms": 48,
+      "metadata": {
+        "copy": {
+          "subject": "A planning idea for adult AI learning workshops",
+          "body": "Your work with adult AI learning workshops offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+          "recipient_claims": [
+            {
+              "statement": "Works with adult AI learning workshops",
+              "source_id": "2",
+              "quote": "Example Adult 2 works with adult AI learning workshops."
+            }
+          ],
+          "book_fact_ids": [
+            "title",
+            "publication",
+            "method"
+          ],
+          "selected_chapter_ids": [
+            10
+          ],
+          "offered_next_step": "chapter_recommendation",
+          "asset_id": null,
+          "asset_version": null
+        },
+        "brief": {
+          "verified_facts": [
+            {
+              "statement": "Works with adult AI learning workshops",
+              "source_id": "2",
+              "quote": "Example Adult 2 works with adult AI learning workshops."
+            }
+          ],
+          "relevant_work_topic": "adult AI learning workshops",
+          "possible_use_cases": [
+            "Could sketch a small prototype and check it"
+          ],
+          "unknowns": [
+            "Current project priorities"
+          ]
+        },
+        "contract": 3
+      }
+    },
+    {
+      "blind_id": "B007",
+      "candidate_id": 3,
+      "subject": "A planning idea for research source checking",
+      "body": "Your work with research source checking offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+      "complete_preview": "Hi Example,\n\nYour work with research source checking offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?\n\nBest,\nHuashan Chen\n\n—\nHuashan Chen · Author of Use AI to Direct AI\n\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\nSynthetic evaluation only\nTo stop these messages, reply STOP.",
+      "state": "draft",
+      "materials_hash": "af2d4548e36c0e210e6463e990c1626150e522f8248c3fd3e152a371671ed3df",
+      "review": [
+        {
+          "approved": true,
+          "hard_failures": [],
+          "reason": "Synthetic reviewer accepts supplied literal evidence and hypothetical use.",
+          "quality": {
+            "relevance": 4,
+            "specificity": 4,
+            "naturalness": 4,
+            "reply_burden": 4
+          }
+        }
+      ],
+      "elapsed_ms": 46,
+      "metadata": {
+        "copy": {
+          "subject": "A planning idea for research source checking",
+          "body": "Your work with research source checking offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+          "recipient_claims": [
+            {
+              "statement": "Works with research source checking",
+              "source_id": "3",
+              "quote": "Example Adult 3 works with research source checking."
+            }
+          ],
+          "book_fact_ids": [
+            "title",
+            "publication",
+            "method"
+          ],
+          "selected_chapter_ids": [
+            10
+          ],
+          "offered_next_step": "chapter_recommendation",
+          "asset_id": null,
+          "asset_version": null
+        },
+        "brief": {
+          "verified_facts": [
+            {
+              "statement": "Works with research source checking",
+              "source_id": "3",
+              "quote": "Example Adult 3 works with research source checking."
+            }
+          ],
+          "relevant_work_topic": "research source checking",
+          "possible_use_cases": [
+            "Could sketch a small prototype and check it"
+          ],
+          "unknowns": [
+            "Current project priorities"
+          ]
+        },
+        "contract": 3
+      }
+    },
+    {
+      "blind_id": "B008",
+      "candidate_id": 1,
+      "subject": "A planning idea for client follow-up tools",
+      "body": "Your work with client follow-up tools offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+      "complete_preview": "Hi Example,\n\nYour work with client follow-up tools offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?\n\nBest,\nHuashan Chen\n\n—\nHuashan Chen · Author of Use AI to Direct AI\n\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\nSynthetic evaluation only\nTo stop these messages, reply STOP.",
+      "state": "draft",
+      "materials_hash": "e71122da0a6586d70a9f6fdadb8c291661c5d068edcb12302813121ed84fb2d6",
+      "review": [
+        {
+          "approved": true,
+          "hard_failures": [],
+          "reason": "Synthetic reviewer accepts supplied literal evidence and hypothetical use.",
+          "quality": {
+            "relevance": 4,
+            "specificity": 4,
+            "naturalness": 4,
+            "reply_burden": 4
+          }
+        }
+      ],
+      "elapsed_ms": 49,
+      "metadata": {
+        "copy": {
+          "subject": "A planning idea for client follow-up tools",
+          "body": "Your work with client follow-up tools offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+          "recipient_claims": [
+            {
+              "statement": "Works with client follow-up tools",
+              "source_id": "1",
+              "quote": "Example Adult 1 works with client follow-up tools."
+            }
+          ],
+          "book_fact_ids": [
+            "title",
+            "publication",
+            "method"
+          ],
+          "selected_chapter_ids": [
+            10
+          ],
+          "offered_next_step": "chapter_recommendation",
+          "asset_id": null,
+          "asset_version": null
+        },
+        "brief": {
+          "verified_facts": [
+            {
+              "statement": "Works with client follow-up tools",
+              "source_id": "1",
+              "quote": "Example Adult 1 works with client follow-up tools."
+            }
+          ],
+          "relevant_work_topic": "client follow-up tools",
+          "possible_use_cases": [
+            "Could sketch a small prototype and check it"
+          ],
+          "unknowns": [
+            "Current project priorities"
+          ]
+        },
+        "contract": 3
+      }
+    },
+    {
+      "blind_id": "B009",
+      "candidate_id": 5,
+      "subject": "A planning idea for small software prototypes",
+      "body": "Your work with small software prototypes offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+      "complete_preview": "Hi Example,\n\nYour work with small software prototypes offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?\n\nBest,\nHuashan Chen\n\n—\nHuashan Chen · Author of Use AI to Direct AI\n\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\nSynthetic evaluation only\nTo stop these messages, reply STOP.",
+      "state": "draft",
+      "materials_hash": "e456b1152d1736319f8947b19a6fa9e3888ba9038e415315d821065cf857ea2d",
+      "review": [
+        {
+          "approved": true,
+          "hard_failures": [],
+          "reason": "Synthetic reviewer accepts supplied literal evidence and hypothetical use.",
+          "quality": {
+            "relevance": 4,
+            "specificity": 4,
+            "naturalness": 4,
+            "reply_burden": 4
+          }
+        }
+      ],
+      "elapsed_ms": 46,
+      "metadata": {
+        "copy": {
+          "subject": "A planning idea for small software prototypes",
+          "body": "Your work with small software prototypes offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+          "recipient_claims": [
+            {
+              "statement": "Works with small software prototypes",
+              "source_id": "10",
+              "quote": "Example Adult 5 works with small software prototypes."
+            }
+          ],
+          "book_fact_ids": [
+            "title",
+            "publication",
+            "method"
+          ],
+          "selected_chapter_ids": [
+            10
+          ],
+          "offered_next_step": "chapter_recommendation",
+          "asset_id": null,
+          "asset_version": null
+        },
+        "brief": {
+          "verified_facts": [
+            {
+              "statement": "Works with small software prototypes",
+              "source_id": "10",
+              "quote": "Example Adult 5 works with small software prototypes."
+            }
+          ],
+          "relevant_work_topic": "small software prototypes",
+          "possible_use_cases": [
+            "Could sketch a small prototype and check it"
+          ],
+          "unknowns": [
+            "Current project priorities"
+          ]
+        },
+        "contract": 3
+      }
+    },
+    {
+      "blind_id": "B010",
+      "candidate_id": 3,
+      "subject": "A planning idea for research source checking",
+      "body": "Your work with research source checking offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+      "complete_preview": "Hi Example,\n\nYour work with research source checking offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?\n\nBest,\nHuashan Chen\n\n—\nHuashan Chen · Author of Use AI to Direct AI\n\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\nSynthetic evaluation only\nTo stop these messages, reply STOP.",
+      "state": "draft",
+      "materials_hash": "af2d4548e36c0e210e6463e990c1626150e522f8248c3fd3e152a371671ed3df",
+      "review": [
+        {
+          "approved": true,
+          "hard_failures": [],
+          "reason": "Synthetic reviewer accepts supplied literal evidence and hypothetical use.",
+          "quality": {
+            "relevance": 4,
+            "specificity": 4,
+            "naturalness": 4,
+            "reply_burden": 4
+          }
+        }
+      ],
+      "elapsed_ms": 46,
+      "metadata": {
+        "copy": {
+          "subject": "A planning idea for research source checking",
+          "body": "Your work with research source checking offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+          "recipient_claims": [
+            {
+              "statement": "Works with research source checking",
+              "source_id": "8",
+              "quote": "Example Adult 3 works with research source checking."
+            }
+          ],
+          "book_fact_ids": [
+            "title",
+            "publication",
+            "method"
+          ],
+          "selected_chapter_ids": [
+            10
+          ],
+          "offered_next_step": "chapter_recommendation",
+          "asset_id": null,
+          "asset_version": null
+        },
+        "brief": {
+          "verified_facts": [
+            {
+              "statement": "Works with research source checking",
+              "source_id": "8",
+              "quote": "Example Adult 3 works with research source checking."
+            }
+          ],
+          "relevant_work_topic": "research source checking",
+          "possible_use_cases": [
+            "Could sketch a small prototype and check it"
+          ],
+          "unknowns": [
+            "Current project priorities"
+          ]
+        },
+        "contract": 3
+      }
+    },
+    {
+      "blind_id": "B011",
+      "candidate_id": 1,
+      "subject": "A planning idea for client follow-up tools",
+      "body": "Your work with client follow-up tools offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+      "complete_preview": "Hi Example,\n\nYour work with client follow-up tools offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?\n\nBest,\nHuashan Chen\n\n—\nHuashan Chen · Author of Use AI to Direct AI\n\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\nSynthetic evaluation only\nTo stop these messages, reply STOP.",
+      "state": "draft",
+      "materials_hash": "e71122da0a6586d70a9f6fdadb8c291661c5d068edcb12302813121ed84fb2d6",
+      "review": [
+        {
+          "approved": true,
+          "hard_failures": [],
+          "reason": "Synthetic reviewer accepts supplied literal evidence and hypothetical use.",
+          "quality": {
+            "relevance": 4,
+            "specificity": 4,
+            "naturalness": 4,
+            "reply_burden": 4
+          }
+        }
+      ],
+      "elapsed_ms": 48,
+      "metadata": {
+        "copy": {
+          "subject": "A planning idea for client follow-up tools",
+          "body": "Your work with client follow-up tools offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+          "recipient_claims": [
+            {
+              "statement": "Works with client follow-up tools",
+              "source_id": "11",
+              "quote": "Example Adult 1 works with client follow-up tools."
+            }
+          ],
+          "book_fact_ids": [
+            "title",
+            "publication",
+            "method"
+          ],
+          "selected_chapter_ids": [
+            10
+          ],
+          "offered_next_step": "chapter_recommendation",
+          "asset_id": null,
+          "asset_version": null
+        },
+        "brief": {
+          "verified_facts": [
+            {
+              "statement": "Works with client follow-up tools",
+              "source_id": "11",
+              "quote": "Example Adult 1 works with client follow-up tools."
+            }
+          ],
+          "relevant_work_topic": "client follow-up tools",
+          "possible_use_cases": [
+            "Could sketch a small prototype and check it"
+          ],
+          "unknowns": [
+            "Current project priorities"
+          ]
+        },
+        "contract": 3
+      }
+    },
+    {
+      "blind_id": "B012",
+      "candidate_id": 2,
+      "subject": "A planning idea for adult AI learning workshops",
+      "body": "Your work with adult AI learning workshops offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+      "complete_preview": "Hi Example,\n\nYour work with adult AI learning workshops offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?\n\nBest,\nHuashan Chen\n\n—\nHuashan Chen · Author of Use AI to Direct AI\n\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\nSynthetic evaluation only\nTo stop these messages, reply STOP.",
+      "state": "draft",
+      "materials_hash": "130936b79b3ffd6c88adc4b92015ede563d7b487b14d4cd4219deaaae1edc26c",
+      "review": [
+        {
+          "approved": true,
+          "hard_failures": [],
+          "reason": "Synthetic reviewer accepts supplied literal evidence and hypothetical use.",
+          "quality": {
+            "relevance": 4,
+            "specificity": 4,
+            "naturalness": 4,
+            "reply_burden": 4
+          }
+        }
+      ],
+      "elapsed_ms": 48,
+      "metadata": {
+        "copy": {
+          "subject": "A planning idea for adult AI learning workshops",
+          "body": "Your work with adult AI learning workshops offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+          "recipient_claims": [
+            {
+              "statement": "Works with adult AI learning workshops",
+              "source_id": "12",
+              "quote": "Example Adult 2 works with adult AI learning workshops."
+            }
+          ],
+          "book_fact_ids": [
+            "title",
+            "publication",
+            "method"
+          ],
+          "selected_chapter_ids": [
+            10
+          ],
+          "offered_next_step": "chapter_recommendation",
+          "asset_id": null,
+          "asset_version": null
+        },
+        "brief": {
+          "verified_facts": [
+            {
+              "statement": "Works with adult AI learning workshops",
+              "source_id": "12",
+              "quote": "Example Adult 2 works with adult AI learning workshops."
+            }
+          ],
+          "relevant_work_topic": "adult AI learning workshops",
+          "possible_use_cases": [
+            "Could sketch a small prototype and check it"
+          ],
+          "unknowns": [
+            "Current project priorities"
+          ]
+        },
+        "contract": 3
+      }
+    },
+    {
+      "blind_id": "B013",
+      "candidate_id": 5,
+      "subject": "A planning idea for small software prototypes",
+      "body": "Your work with small software prototypes offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+      "complete_preview": "Hi Example,\n\nYour work with small software prototypes offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?\n\nBest,\nHuashan Chen\n\n—\nHuashan Chen · Author of Use AI to Direct AI\n\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\nSynthetic evaluation only\nTo stop these messages, reply STOP.",
+      "state": "draft",
+      "materials_hash": "e456b1152d1736319f8947b19a6fa9e3888ba9038e415315d821065cf857ea2d",
+      "review": [
+        {
+          "approved": true,
+          "hard_failures": [],
+          "reason": "Synthetic reviewer accepts supplied literal evidence and hypothetical use.",
+          "quality": {
+            "relevance": 4,
+            "specificity": 4,
+            "naturalness": 4,
+            "reply_burden": 4
+          }
+        }
+      ],
+      "elapsed_ms": 49,
+      "metadata": {
+        "copy": {
+          "subject": "A planning idea for small software prototypes",
+          "body": "Your work with small software prototypes offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+          "recipient_claims": [
+            {
+              "statement": "Works with small software prototypes",
+              "source_id": "5",
+              "quote": "Example Adult 5 works with small software prototypes."
+            }
+          ],
+          "book_fact_ids": [
+            "title",
+            "publication",
+            "method"
+          ],
+          "selected_chapter_ids": [
+            10
+          ],
+          "offered_next_step": "chapter_recommendation",
+          "asset_id": null,
+          "asset_version": null
+        },
+        "brief": {
+          "verified_facts": [
+            {
+              "statement": "Works with small software prototypes",
+              "source_id": "5",
+              "quote": "Example Adult 5 works with small software prototypes."
+            }
+          ],
+          "relevant_work_topic": "small software prototypes",
+          "possible_use_cases": [
+            "Could sketch a small prototype and check it"
+          ],
+          "unknowns": [
+            "Current project priorities"
+          ]
+        },
+        "contract": 3
+      }
+    },
+    {
+      "blind_id": "B014",
+      "candidate_id": 2,
+      "subject": "A planning idea for adult AI learning workshops",
+      "body": "Your work with adult AI learning workshops offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+      "complete_preview": "Hi Example,\n\nYour work with adult AI learning workshops offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?\n\nBest,\nHuashan Chen\n\n—\nHuashan Chen · Author of Use AI to Direct AI\n\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\nSynthetic evaluation only\nTo stop these messages, reply STOP.",
+      "state": "draft",
+      "materials_hash": "130936b79b3ffd6c88adc4b92015ede563d7b487b14d4cd4219deaaae1edc26c",
+      "review": [
+        {
+          "approved": true,
+          "hard_failures": [],
+          "reason": "Synthetic reviewer accepts supplied literal evidence and hypothetical use.",
+          "quality": {
+            "relevance": 4,
+            "specificity": 4,
+            "naturalness": 4,
+            "reply_burden": 4
+          }
+        }
+      ],
+      "elapsed_ms": 46,
+      "metadata": {
+        "copy": {
+          "subject": "A planning idea for adult AI learning workshops",
+          "body": "Your work with adult AI learning workshops offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+          "recipient_claims": [
+            {
+              "statement": "Works with adult AI learning workshops",
+              "source_id": "7",
+              "quote": "Example Adult 2 works with adult AI learning workshops."
+            }
+          ],
+          "book_fact_ids": [
+            "title",
+            "publication",
+            "method"
+          ],
+          "selected_chapter_ids": [
+            10
+          ],
+          "offered_next_step": "chapter_recommendation",
+          "asset_id": null,
+          "asset_version": null
+        },
+        "brief": {
+          "verified_facts": [
+            {
+              "statement": "Works with adult AI learning workshops",
+              "source_id": "7",
+              "quote": "Example Adult 2 works with adult AI learning workshops."
+            }
+          ],
+          "relevant_work_topic": "adult AI learning workshops",
+          "possible_use_cases": [
+            "Could sketch a small prototype and check it"
+          ],
+          "unknowns": [
+            "Current project priorities"
+          ]
+        },
+        "contract": 3
+      }
+    },
+    {
+      "blind_id": "B015",
+      "candidate_id": 4,
+      "subject": "A planning idea for writing revision courses",
+      "body": "Your work with writing revision courses offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+      "complete_preview": "Hi Example,\n\nYour work with writing revision courses offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?\n\nBest,\nHuashan Chen\n\n—\nHuashan Chen · Author of Use AI to Direct AI\n\nBook promotion / reading invitation, sent by the author’s automated reading assistant.\nSynthetic evaluation only\nTo stop these messages, reply STOP.",
+      "state": "draft",
+      "materials_hash": "d40514e9db59bb9ebb7d00eb94cc16f5e45138c86e5ecdf8fb8a05b2b32f4943",
+      "review": [
+        {
+          "approved": true,
+          "hard_failures": [],
+          "reason": "Synthetic reviewer accepts supplied literal evidence and hypothetical use.",
+          "quality": {
+            "relevance": 4,
+            "specificity": 4,
+            "naturalness": 4,
+            "reply_burden": 4
+          }
+        }
+      ],
+      "elapsed_ms": 45,
+      "metadata": {
+        "copy": {
+          "subject": "A planning idea for writing revision courses",
+          "body": "Your work with writing revision courses offers a concrete setting for exploring how AI can help make something checkable. Use AI to Direct AI, published on Amazon, describes planning with one AI and using its written brief to direct other AIs to build and check a result. You keep the important decisions throughout. A possible starting point would be a small prototype with a few clear acceptance checks, so you can decide what works before extending it. Would a chapter recommendation for that kind of project be useful?",
+          "recipient_claims": [
+            {
+              "statement": "Works with writing revision courses",
+              "source_id": "9",
+              "quote": "Example Adult 4 works with writing revision courses."
+            }
+          ],
+          "book_fact_ids": [
+            "title",
+            "publication",
+            "method"
+          ],
+          "selected_chapter_ids": [
+            10
+          ],
+          "offered_next_step": "chapter_recommendation",
+          "asset_id": null,
+          "asset_version": null
+        },
+        "brief": {
+          "verified_facts": [
+            {
+              "statement": "Works with writing revision courses",
+              "source_id": "9",
+              "quote": "Example Adult 4 works with writing revision courses."
+            }
+          ],
+          "relevant_work_topic": "writing revision courses",
+          "possible_use_cases": [
+            "Could sketch a small prototype and check it"
+          ],
+          "unknowns": [
+            "Current project priorities"
+          ]
+        },
+        "contract": 3
+      }
+    }
+  ]
+}

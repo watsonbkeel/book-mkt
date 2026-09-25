@@ -68,7 +68,7 @@ class Researcher:
         result,sources=self.ai.discover(persona)
         rows=result.get('candidates',[])
         if not isinstance(rows,list):raise ValueError('搜索候选不是列表')
-        added=0;review=0;duplicate=0;errors=[];cache={}
+        added=0;review=0;duplicate=0;errors=[];cache={};snapshot_remaining=c['evidence_task_chars']
         def fetch(url):
             if url in cache:return cache[url]
             uid=self.ai.reserve('fetch')
@@ -95,7 +95,10 @@ class Researcher:
                 if conflict:
                     duplicate+=1;continue
                 ev=json.loads(item['evidence_json']);ev['search_sources']=[s for s in sources[:15] if isinstance(s,dict)];item['evidence_json']=json.dumps(ev,ensure_ascii=False)
-                self.store.add_contact(**item);added+=1;review+=item['eligibility']!='us_public'
+                cid=self.store.add_contact(**item)
+                from .evidence import save_sources
+                snapshot_remaining-=save_sources(self.store,self.config,cid,[cache[u] for u in dict.fromkeys([item['profile_url'],item['source_url']]) if u in cache],row.get('fit_quote',''),snapshot_remaining)
+                added+=1;review+=item['eligibility']!='us_public'
             except BudgetExceeded:break
             except Exception as e:errors.append(stage+':'+validation_reasons.get(str(e),type(e).__name__))
         self.store.audit('research_completed',json.dumps({'persona':persona,'added':added,'held':review,'duplicate':duplicate,'errors':errors}))
@@ -105,13 +108,19 @@ class Researcher:
         contact=self.store.contact(cid)
         if not contact or contact['historical'] or self.store.is_suppressed(cid):raise ValueError('历史/停发联系人不通过网页重新激活')
         row={'name':contact['name'],'email':contact['email'],'persona':contact['persona'],'bio':contact['bio'],'fit_reason':contact['fit_reason'],'contact_url':contact['source_url'],'profile_url':contact['profile_url'] or contact['source_url'],'fit_quote':contact['fit_excerpt'],'country_quote':contact['country_excerpt'],'country_code':contact['country']}
+        cache={}
         def fetch(url):
+            if url in cache:return cache[url]
             uid=self.ai.reserve('fetch')
             try:
-                result=self.fetcher.fetch(url);self.store.execute("UPDATE api_usage SET status='ok' WHERE id=?",(uid,));return result
+                result=self.fetcher.fetch(url);cache[url]=result;self.store.execute("UPDATE api_usage SET status='ok' WHERE id=?",(uid,));return result
             except Exception:
                 self.store.execute("UPDATE api_usage SET status='failed' WHERE id=?",(uid,));raise
         item=verify_candidate(row,fetch,self.config.get()['outreach_scope'],self.dns_checker)
+        from .evidence import save_sources
+        save_sources(self.store,self.config,cid,list(cache.values()),contact['fit_excerpt'])
+        if contact['eligibility']=='consent' and not contact['permission_note'].startswith('草稿失败：') and item['eligibility']!='blocked':
+            item.update(eligibility='consent',permission_note=contact['permission_note'],state='ready')
         item.pop('email');item.pop('name')
         self.store.update_contact(cid,**item)
         self.store.audit('contact_reverified',f"contact={cid}; eligibility={item['eligibility']}")

@@ -20,24 +20,17 @@ def make_env(tmp_path):
     return s,c
 
 
-def test_three_distinct_subjects_and_persona_value_with_real_adapter(tmp_path):
+def test_three_distinct_complete_bodies_preserved_by_adapter(tmp_path):
+    from synthetic import full_copy,seed,SyntheticAI
     s,c=make_env(tmp_path);c.update({'api_key':'test','sender_email':'author@example.net'})
-    subjects=[]
-    for persona,topic,quote in [
-        ('operator','AI workflows','practical AI workflows'),
-        ('creator','story drafts','shaping original story drafts'),
-        ('knowledge','source evidence','checking source evidence'),
-    ]:
-        cid=s.add_contact(name='Demo Reader',email=persona+'@'+persona+'.example',persona=persona,
-                          fit_excerpt=quote,eligibility='consent',permission_note='Explicit local test consent',state='ready')
-        ai=AI(s,c,CopyHTTP({'quote':quote,'topic':topic,'opening_style':'focus','subject_style':'exercise'}))
-        mid=Engine(s,c,ai=ai).draft_initial(cid);row=s.message(mid)
-        subjects.append(row['subject'])
-        assert row['state']=='draft' and 'Think → Write → Build → Check' in row['body']
-        assert len(row['body'].split())<=120
-        ev=json.loads(row['evidence']);assert ev['quote']==quote and ev['topic']==topic
-    assert len(set(subjects))==3
-    assert not s.all("SELECT * FROM messages WHERE attempt_at IS NOT NULL")
+    outputs=[]
+    for index in range(3):
+        cid=s.add_contact(name='Example Reader',email=f'example@domain{index}.example',eligibility='consent',permission_note='Synthetic permission')
+        rows=[seed(s,cid)];copy=full_copy(rows,subject=f'A distinct project idea {index}')
+        ai=AI(s,c,CopyHTTP(copy));result=ai.initial_copy(s.contact(cid),{'sources':rows})
+        assert result==copy
+        outputs.append(result['subject'])
+    assert len(set(outputs))==3
 
 
 def test_worst_length_and_quoted_unicode_no_html_or_guarantees(tmp_path):
@@ -51,12 +44,11 @@ def test_worst_length_and_quoted_unicode_no_html_or_guarantees(tmp_path):
         assert len(render_initial(contact,cp).split())<=120
 
 
-def test_consent_without_profile_can_draft_but_cold_candidate_cannot(tmp_path):
+def test_consent_without_evidence_cannot_fallback_to_generic_copy(tmp_path):
     s,c=make_env(tmp_path);a=AI(s,c)
-    cp=a.initial_copy({'name':'Demo','persona':'creator','eligibility':'consent','fit_excerpt':''})
+    for eligibility in ('consent','us_public'):
+        with pytest.raises(ValueError):a.initial_copy({'name':'Demo','eligibility':eligibility})
     assert not s.all('SELECT * FROM api_usage')
-    assert 'website' not in cp['opening']
-    with pytest.raises(ValueError):a.initial_copy({'name':'Demo','persona':'creator','eligibility':'us_public','fit_excerpt':''})
 
 
 @pytest.mark.parametrize('text',[
@@ -85,7 +77,7 @@ def test_subject_guard_checks_before_smtp(tmp_path):
     cid=s.add_contact(name='Reader',email='reader@example.com',eligibility='consent',permission_note='Explicit test consent',state='ready')
     mail=Mail();e=Engine(s,c,ai=Model(),smtp=mail);mid=e.draft_initial(cid)
     s.update_message(mid,subject='Re: Pretending we spoke before')
-    assert e.dispatch(now=now)=='held' and not mail.sent
+    assert e.dispatch(now=now)=='waiting' and not mail.sent
 
 
 def test_new_preset_requires_login_csrf_confirmation_and_preserves_limits(tmp_path):

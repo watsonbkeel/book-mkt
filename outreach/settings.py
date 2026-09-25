@@ -20,11 +20,12 @@ DEFAULTS={
  'daily_api_calls':60,'daily_research_calls':3,'daily_fetches':80,'research_batch_size':8,'queue_target':20,'research_interval_minutes':240,
  'research_enabled':False,'sending_enabled':False,'auto_reply_enabled':False,'outbound_mode':'review',
  'outreach_scope':'consent_only','scope_confirmed':False,'sender_auth_confirmed':False,
+ 'evidence_source_chars':4000,'evidence_contact_chars':8000,'evidence_task_chars':48000,
  'max_source_age_days':14,'retention_days':90,'domain_cooldown_days':365}
 SECRETS={'smtp_password','imap_password','api_key','brave_api_key'}
 BOOLS={k for k,v in DEFAULTS.items() if isinstance(v,bool)}
 INTS={k for k,v in DEFAULTS.items() if isinstance(v,int) and not isinstance(v,bool)}
-RANGES={'research_interval_minutes':(30,1440),'domain_cooldown_days':(365,730),'daily_limit':(1,10),'gap_minutes':(61,240),'daily_reply_limit':(1,30),'reply_gap_minutes':(2,120),'max_thread_replies':(1,5),'daily_thread_replies':(1,3),'daily_api_calls':(5,120),'daily_research_calls':(1,20),'native_search_call_limit':(1,12),'daily_fetches':(5,100),'research_batch_size':(1,8),'queue_target':(5,40),'max_source_age_days':(1,30),'retention_days':(30,365),'smtp_port':(1,65535),'imap_port':(1,65535)}
+RANGES={'evidence_source_chars':(500,8000),'evidence_contact_chars':(1000,16000),'evidence_task_chars':(8000,64000),'research_interval_minutes':(30,1440),'domain_cooldown_days':(365,730),'daily_limit':(1,10),'gap_minutes':(61,240),'daily_reply_limit':(1,30),'reply_gap_minutes':(2,120),'max_thread_replies':(1,5),'daily_thread_replies':(1,3),'daily_api_calls':(5,120),'daily_research_calls':(1,20),'native_search_call_limit':(1,12),'daily_fetches':(5,100),'research_batch_size':(1,8),'queue_target':(5,40),'max_source_age_days':(1,30),'retention_days':(30,365),'smtp_port':(1,65535),'imap_port':(1,65535)}
 class Config:
  def __init__(self,store,data_dir):
   self.store=store;self.dir=Path(data_dir);self.dir.mkdir(parents=True,exist_ok=True);keyfile=self.dir/'master.key'
@@ -38,6 +39,8 @@ class Config:
     except FileExistsError:pass
    key=keyfile.read_bytes().strip()
   self.fernet=Fernet(key);self.key=key
+  from .profiles import Profiles
+  Profiles(self).ensure_legacy()
  def get(self):
   r=self.store.one("SELECT value FROM settings WHERE key='config'")
   return {**DEFAULTS,**(json.loads(r['value']) if r else {})}
@@ -85,15 +88,36 @@ class Config:
    if u.port not in (None,443):raise ValueError(k+'只支持公共HTTPS 443端口')
    if k=='public_url' and u.path not in ('','/'):raise ValueError('退订公网地址应使用独立域名根路径，不支持子路径')
    cand[k]=v.rstrip('/')
-  for k,allowed in {'api_mode':['responses','chat','anthropic'],'search_mode':['native','brave'],'outbound_mode':['review','ai_review','automatic'],'outreach_scope':['consent_only','us_business_public'],'reasoning_effort':['none','low','medium','high']}.items():
+  for k,allowed in {'api_mode':['responses','chat','anthropic'],'search_mode':['native','brave'],'outbound_mode':['review','ai_review','automatic'],'outreach_scope':['consent_only','us_business_public'],'reasoning_effort':['default','omit','none','minimal','low','medium','high','xhigh','max']}.items():
    if cand[k] not in allowed:raise ValueError('不支持的'+k)
-  if cand['search_mode']=='native' and cand['api_mode']=='chat':raise ValueError('Chat模式需要Brave；原生搜索仅用于Responses或Anthropic Messages')
+  research_protocol=cand['api_mode']
+  if self.store.one("SELECT 1 FROM sqlite_master WHERE name='task_routes'"):
+   route=self.store.one("SELECT p.id,p.config FROM profiles p JOIN task_routes t ON p.id=t.profile_id WHERE t.task='research'")
+   if route and route['id'] not in ('legacy','legacy-research'):research_protocol=json.loads(route['config'])['protocol']
+  if cand['search_mode']=='native' and research_protocol=='chat':raise ValueError('研究profile为Chat时需要Brave；原生搜索仅用于Responses或Anthropic Messages')
+  if cand['api_base_url']!=current['api_base_url'] and self.secret('api_key') and not patch.get('api_key'):raise ValueError('更换API端点须明确提供新密钥，不转发旧密钥')
   with self.store.tx() as db:
    db.execute("INSERT INTO settings VALUES('config',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",(json.dumps(cand,ensure_ascii=False),))
    for k in SECRETS:
     if k in patch and patch[k]:
      if len(str(patch[k]))>4096:raise ValueError('密钥过长')
      db.execute('INSERT INTO secrets VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',(k,self.fernet.encrypt(str(patch[k]).encode())))
+  if self.store.one("SELECT 1 FROM sqlite_master WHERE name='profiles'") and any(k in patch for k in ('api_base_url','api_mode','model','classification_model','reasoning_effort','send_reasoning','api_key')):
+   from .profiles import Profiles
+   profiles=Profiles(self)
+   with self.store.tx() as db:
+    db.execute("UPDATE profiles SET config=?,version=version+1 WHERE id='legacy'",(json.dumps(profiles.legacy()),))
+    db.execute("UPDATE profiles SET config=?,version=version+1 WHERE id='legacy-research'",(json.dumps({**profiles.legacy(),'max_tokens':5500,'label':'Legacy research budget'}),))
+    if cand['classification_model']:
+     cp={**profiles.legacy(),'model':cand['classification_model']}
+     db.execute("INSERT INTO profiles VALUES('legacy-classification',1,?) ON CONFLICT(id) DO UPDATE SET config=excluded.config,version=profiles.version+1",(json.dumps(cp),))
+     db.execute("UPDATE task_routes SET profile_id='legacy-classification' WHERE task='classification' AND profile_id='legacy'")
+    elif 'classification_model' in patch:
+     db.execute("UPDATE task_routes SET profile_id='legacy' WHERE task='classification' AND profile_id='legacy-classification'")
+    profiles.invalidate(db)
+  if self.store.one("SELECT 1 FROM sqlite_master WHERE name='profiles'") and any(k in patch and patch[k]!=current[k] for k in ('outbound_mode','sender_name','sender_email','postal_address','company_name','public_url','outreach_scope','require_dmarc','trusted_authserv_id','max_source_age_days')):
+   from .profiles import Profiles
+   with self.store.tx() as db:Profiles.invalidate(db)
   # Connection-change invalidation prevents old "tested" flags from authorizing a new host.
   for group in ['smtp','imap']:
    if any(k.startswith(group+'_') and k in patch and patch[k]!=current.get(k) for k in patch):

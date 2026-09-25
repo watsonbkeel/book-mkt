@@ -12,6 +12,9 @@ BASIC_SEARCH_TOOL = 'web_search_20250305'
 
 def messages_call(ai, cfg, key, model, instructions, prompt, usage_id, *, research=False):
     from .ai import ProviderError
+    from .limits import checkpoint
+    import json,time
+    from .profiles import Profiles,digest
 
     messages = [{'role':'user', 'content':prompt}]
     search_calls = set()
@@ -21,6 +24,7 @@ def messages_call(ai, cfg, key, model, instructions, prompt, usage_id, *, resear
     max_turns = MAX_CONTINUATIONS + 1 if research else 1
     for turn in range(max_turns):
         if turn:
+            checkpoint(request=True)
             current_id = ai.reserve('llm')
             ai.store.execute('UPDATE api_usage SET model=?,purpose=? WHERE id=?',
                              (model, 'research_continuation', current_id))
@@ -28,17 +32,24 @@ def messages_call(ai, cfg, key, model, instructions, prompt, usage_id, *, resear
             'model':model,
             'system':instructions + ' Return the final answer as one JSON object, no prose or markdown.',
             'messages':messages,
-            'max_tokens':5500 if research else 2200,
+            'max_tokens':cfg['profile']['max_tokens'],
         }
+        payload.update(cfg['parameters'])
         if research:
             remaining = MAX_SEARCH_USES - len(search_calls)
             if remaining <= 0:
                 ai.store.execute("UPDATE api_usage SET status='failed' WHERE id=?", (current_id,))
                 raise ProviderError('本轮原生搜索工具次数已达上限；不继续调用或编造结果')
             payload['tools'] = [{'type':BASIC_SEARCH_TOOL, 'name':'web_search','max_uses':remaining}]
+        details={**Profiles(ai.config).preview(cfg['task'],cfg['profile']), 'prompt_hash':digest(instructions),'materials_hash':digest(prompt),'parameters_sent':True,'http_success':False,'provider_confirmed':False}
+        details['request_hash']=digest(payload);details['draft_id']=getattr(ai,'draft_id',None);details['inbound_id']=getattr(ai,'inbound_id',None)
+        details['timeout_sent']=min(cfg['profile']['timeout'],checkpoint())
+        started=time.monotonic()
         try:
             response = ai.http.json(cfg['api_base_url'] + '/messages', payload=payload,
-                                   headers={'x-api-key':key, 'anthropic-version':'2023-06-01'})
+                                   headers={'x-api-key':key, 'anthropic-version':'2023-06-01'},timeout=details['timeout_sent'])
+            details.update(http_success=True,reported_model=response.get('model'),finish_status=response.get('stop_reason'),elapsed_ms=round((time.monotonic()-started)*1000))
+            ai.store.execute('UPDATE api_usage SET details=? WHERE id=?',(json.dumps(details),current_id))
             usage = response.get('usage') or {}
             ai.store.execute('UPDATE api_usage SET input_tokens=?,output_tokens=? WHERE id=?',
                              (int(usage.get('input_tokens',0) or 0),
@@ -95,6 +106,8 @@ def messages_call(ai, cfg, key, model, instructions, prompt, usage_id, *, resear
             ai.store.execute("UPDATE api_usage SET status='received' WHERE id=?", (current_id,))
             return '\n'.join(chunks), sources[:40], current_id
         except Exception:
+            details['elapsed_ms']=round((time.monotonic()-started)*1000)
+            ai.store.execute('UPDATE api_usage SET details=? WHERE id=?',(json.dumps(details),current_id))
             ai.store.execute("UPDATE api_usage SET status='failed' WHERE id=?", (current_id,))
             raise
     raise ProviderError('Messages未完成')

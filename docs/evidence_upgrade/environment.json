@@ -1,0 +1,30 @@
+{
+  "baseline": "a58f0467d680f09572f929cec3757ffd189e9ed9",
+  "branch": "feat/evidence-email-upgrade",
+  "python": "3.13.5",
+  "platform": "Linux-6.12.94+deb13-amd64-x86_64-with-glibc2.41",
+  "commands": [
+    {
+      "command": "python -m pytest -q (baseline)",
+      "exit_code": 0,
+      "passed": 204
+    },
+    {
+      "command": "python -m pytest -q (final)",
+      "exit_code": 0,
+      "passed": 257
+    },
+    {
+      "command": "python -m compileall -q outreach tools tests",
+      "exit_code": 0
+    },
+    {
+      "command": "bash -n on each deploy/*.sh and tools/*.sh",
+      "exit_code": 0
+    }
+  ],
+  "live_api": false,
+  "production_mailbox_access": false,
+  "real_smtp_sends": 0,
+  "production_deployment": false
+}

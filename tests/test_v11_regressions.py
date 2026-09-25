@@ -1,3 +1,4 @@
+from synthetic import SyntheticAI, full_copy, verdict
 """Regression gates written before v1.1 implementation. No real email/model calls."""
 import json,time,smtplib
 from email.message import EmailMessage
@@ -18,8 +19,8 @@ def env(tmp_path):
 class Mail:
  def __init__(self):self.sent=[]
  def send(self,m):self.sent.append(m)
-class Model:
- def initial_copy(self,c):return {'subject':'A practical AI exercise','opening':'Your focus on practical tools caught my attention.','copy_version':2}
+class Model(SyntheticAI):
+ pass  # Full-prose/evidence contract supplied by SyntheticAI.
 
 def test_hourly_check_has_no_two_minute_reconnect(env,tmp_path,monkeypatch):
  s,c=env;clock=[1800000000.0];monkeypatch.setattr('time.time',lambda:clock[0])
@@ -55,7 +56,8 @@ def test_first_body_has_full_title_and_at_most120_words(env):
  s,c=env;cid=s.add_contact(name='Reader',email='reader@acme.example',eligibility='consent',permission_note='Documented consent',state='ready')
  mid=Engine(s,c,ai=Model()).draft_initial(cid);body=s.message(mid)['body']
  assert len(body.split())<=120
- assert 'A Human-Led Method for Moving from Prompting to Building' in body
+ assert 'Use AI to Direct AI' in body
+ assert 'A Human-Led Method for Moving from Prompting to Building' not in body
  assert 'Amazon' in body and 'http' not in body
 
 def test_no_solicitation_pattern_is_rejected_before_extraction():

@@ -4,7 +4,7 @@ from urllib.parse import unquote, urlsplit,urljoin
 from urllib.robotparser import RobotFileParser
 import socket,ssl,ipaddress,http.client,json,hashlib,time,re
 from bs4 import BeautifulSoup
-USER_AGENT='BookReaderResearch/1.2'
+USER_AGENT='BookReaderResearch/1.3'
 
 class NetworkError(RuntimeError):pass
 
@@ -27,6 +27,8 @@ class PinnedHTTPS(http.client.HTTPSConnection):
 
 class PublicHTTP:
     def request(self,url:str,method='GET',headers=None,body:bytes|None=None,max_bytes=2_000_000,timeout=45,redirects=0):
+        from .limits import checkpoint
+        timeout=min(timeout,checkpoint())
         u=urlsplit(url)
         if u.scheme!='https' or not u.hostname or u.username or u.password or u.fragment or (u.port not in (None,443)):
             raise ValueError('只允许不含凭证/片段的公共HTTPS 443地址')
@@ -46,8 +48,8 @@ class PublicHTTP:
             if h.get('content-encoding','identity').lower() not in ('identity',''):raise NetworkError('不读取未经请求的压缩响应')
             return {'status':status,'headers':h,'body':raw,'url':url}
         finally:conn.close()
-    def json(self,url,*,payload=None,headers=None):
-        r=self.request(url,'POST' if payload is not None else 'GET',headers={'Accept':'application/json','Content-Type':'application/json',**(headers or {})},body=json.dumps(payload).encode() if payload is not None else None,max_bytes=2_000_000,timeout=90)
+    def json(self,url,*,payload=None,headers=None,timeout=90):
+        r=self.request(url,'POST' if payload is not None else 'GET',headers={'Accept':'application/json','Content-Type':'application/json',**(headers or {})},body=json.dumps(payload).encode() if payload is not None else None,max_bytes=2_000_000,timeout=timeout)
         if r['status']<200 or r['status']>=300:raise NetworkError('Provider HTTP '+str(r['status'])+'；原始错误体未保存，避免凭证泄漏')
         try:return json.loads(r['body'])
         except (ValueError,UnicodeDecodeError):raise NetworkError('提供方返回非JSON')

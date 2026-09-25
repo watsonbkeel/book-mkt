@@ -30,6 +30,7 @@ def test_pages_and_secret_not_reflected(client):
         r=c.get(path);assert r.status_code==200,path
         assert 'never-show-api-key' not in r.text
     assert c.get('/api/summary').status_code==200
+    assert c.get('/health').json()=={'status':'ok','version':'1.3.0'}
 
 def test_optout_get_has_no_side_effect_post_suppresses(client):
     c,app=client;s=app.state.store

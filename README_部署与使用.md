@@ -1,3 +1,5 @@
+> **当前版本 1.3/schema4：** 本文保留下方原部署背景。文案与模型配置以 [EMAIL_GENERATION](docs/EMAIL_GENERATION.md)、[MODEL_ROUTING](docs/MODEL_ROUTING.md) 为准；当前1.2升级必须使用 [1.3升级回退说明](docs/UPGRADE_ROLLBACK_1.3.md)。主标题/Amazon保留，完整副标题与固定 quote/pattern 不再是新首信要求。三模式都需要独立 AI 和程序检查。
+
 > **公开源码版（2026-09-25）：** 不包含真实联系人、运行数据库、密码、备份及原始截图/验收附件。`resources/history.json` 为空，部署不导入历史联系人；历史导入测试使用 `tests/fixtures/history.json` 中的虚构数据。下文涉及原始交付包的“12 位历史联系人”和证据附件，不适用于本公开版本。
 
 # Reader Studio｜《Use AI to Direct AI》读者拓展工作台

@@ -43,6 +43,12 @@ class Worker:
             elif kind=='test_ai':result=self.engine.ai.call('Return JSON only: {"ok":true}','JSON connectivity test; no personal data.')[0]
             elif kind=='poll':result=self.poll_once()
             elif kind=='research':result=Researcher(self.store,self.config,self.engine.ai).run()
+            elif kind=='recheck':result={'approved':self.engine.review_message(int(payload['message_id']))}
+            elif kind=='redraft':
+                mid=int(payload['message_id']);row=self.store.message(mid)
+                result={'result':self.engine.redraft_reply(mid) if row and row['kind']=='reply' else self.engine.redraft(mid)}
+            elif kind=='create_asset':result={'asset_id':self.engine.create_asset(int(payload['contact_id']))}
+            elif kind=='test_profile':result=self.engine.ai.call('Return JSON {"ok":true}','Explicit profile connection test',purpose='brief',profile_id=payload['profile_id'])[0]
             elif kind=='draft':result={'message_id':self.engine.draft_initial(int(payload['contact_id']))}
             elif kind=='verify_contact':result=Researcher(self.store,self.config,self.engine.ai).reverify(int(payload['contact_id']))
             else:raise ValueError('不支持的任务')
@@ -54,6 +60,20 @@ class Worker:
             self.store.execute("UPDATE jobs SET state='failed',result=?,finished_at=? WHERE id=?",(result,time.time(),row['id']))
             self.store.audit('job_failed',f"job={row['id']}; kind={kind}; {type(e).__name__}")
     def tick(self):
+        from .limits import chain
+        # Real Worker runs in the main thread; hard alarm bounds even a slow socket/read.
+        import threading
+        alarm=threading.current_thread() is threading.main_thread()
+        old=None
+        if alarm:
+            old=signal.signal(signal.SIGALRM,lambda *_: (_ for _ in ()).throw(TimeoutError('tick deadline')))
+            signal.setitimer(signal.ITIMER_REAL,100)
+        try:
+            with chain():return self._tick()
+        finally:
+            if alarm:signal.setitimer(signal.ITIMER_REAL,0);signal.signal(signal.SIGALRM,old)
+            self.store.set_state('worker_heartbeat',time.time())
+    def _tick(self):
         now=time.time();self.store.set_state('worker_heartbeat',now);cfg=self.config.get()
         # Sync first, so unsubscribe replies can cancel queued work before the send attempt.
         if cfg['imap_host'] and self.config.secret('imap_password'):
@@ -74,8 +94,10 @@ class Worker:
             for r in rows:
                 try:self.engine.draft_initial(r['id'])
                 except BudgetExceeded:break
-                except Exception as e:self.store.update_contact(r['id'],state='candidate',permission_note='草稿失败：'+type(e).__name__+'；请人工检查')
-        self.engine.dispatch()
+                except Exception as e:self.store.update_contact(r['id'],state='candidate',runtime_error='草稿失败：'+type(e).__name__+'；请检查证据/配置后重做')
+        from .limits import checkpoint
+        checkpoint()
+        if self.running:self.engine.dispatch()
         if now-self.store.state('last_status_write',0)>3600:
             (self.data_dir/'STATUS.md.tmp').write_text(status_markdown(self.store,self.config),encoding='utf-8');os.replace(self.data_dir/'STATUS.md.tmp',self.data_dir/'STATUS.md');self.store.set_state('last_status_write',now)
         if now-self.store.state('last_retention_run',0)>86400:
@@ -83,6 +105,15 @@ class Worker:
             # Preserve counters/Message-IDs/dedupe; redact old message bodies only after configured retention.
             cutoff=now-cfg['retention_days']*86400
             self.store.execute("UPDATE messages SET body='[超过保留期限，正文已清理]',new_text='',final_body='',wire=NULL,auth_result='',notes='' WHERE created_at<? AND state NOT IN ('queued','draft','new','human_review','uncertain','held') AND kind!='historical'",(cutoff,))
+            from .evidence import purge_contact
+            with self.store.tx() as db:
+                for c in db.execute("SELECT id FROM contacts WHERE updated_at<? AND NOT EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=contacts.id AND m.state IN ('queued','draft','new','human_review','uncertain','held'))",(cutoff,)).fetchall():purge_contact(db,c['id'])
+                db.execute("DELETE FROM draft_revisions WHERE message_id IN (SELECT id FROM messages WHERE body='[超过保留期限，正文已清理]')")
+                db.execute("DELETE FROM reviews WHERE message_id IN (SELECT id FROM messages WHERE body='[超过保留期限，正文已清理]')")
+                db.execute("UPDATE messages SET evidence='',error='' WHERE body='[超过保留期限，正文已清理]'")
+                db.execute('DELETE FROM briefs WHERE created_at<?',(cutoff,))
+                db.execute('DELETE FROM assets WHERE created_at<?',(cutoff,))
+                db.execute('DELETE FROM evidence_sources WHERE retrieved_at<?',(cutoff,))
             self.store.set_state('last_retention_run',now)
         self.store.set_state('worker_heartbeat',time.time())
     def run(self):
@@ -90,7 +121,9 @@ class Worker:
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:raise SystemExit('另一个Worker已经运行；不启动第二个调度器。')
         self.engine.recover()
-        def stop(*_):self.running=False
+        def stop(*_):
+            self.running=False
+            raise InterruptedError('Worker shutting down; incomplete drafts remain held')
         signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
         while self.running:
             try:self.tick()
