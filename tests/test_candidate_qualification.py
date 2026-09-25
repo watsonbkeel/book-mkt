@@ -152,6 +152,22 @@ def test_worker_schedules_one_ai_reverify_with_persistent_cooldown(tmp_path):
     assert store.state('last_ai_reverify_enqueue',0)>0
 
 
+def test_worker_schedules_upgrade_recheck_for_queued_contact(tmp_path):
+    store=Store(tmp_path/'upgrade-review.sqlite3');store.init();config=Config(store,tmp_path)
+    config.update({'research_enabled':True})
+    evidence=json.dumps({'qualification':{'status':'contactable'}})
+    cid=store.add_contact(name='Synthetic Reader',email='reader@example.org',state='queued',
+                          eligibility='us_public',evidence_json=evidence)
+    mid=store.add_message(contact_id=cid,direction='outbound',kind='initial',
+                          recipient='reader@example.org',subject='Synthetic subject',body='Synthetic body',
+                          message_id='<synthetic@example.org>',state='held',
+                          error='1.3.1升级：旧审核与质量门槛须重新检查')
+    store.execute("UPDATE messages SET origin='ai' WHERE id=?",(mid,))
+    Worker(store,config,tmp_path)._tick()
+    job=store.one("SELECT payload FROM jobs WHERE kind='recheck'")
+    assert job and json.loads(job['payload'])['message_id']==mid
+
+
 def test_permission_cannot_override_a_missing_fit_quote(tmp_path):
     store = Store(tmp_path / 'research.sqlite3'); store.init(); config = Config(store, tmp_path)
     source = 'https://adult-ai.example/contact'

@@ -108,7 +108,7 @@ class Worker:
             if inbound:
                 self.engine.process_inbound(inbound['id']);worked=True
         if not worked and cfg['research_enabled']:
-            held=self.store.one("SELECT m.id FROM messages m JOIN contacts c ON c.id=m.contact_id WHERE m.kind='initial' AND m.origin='ai' AND m.state='held' AND m.attempt_at IS NULL AND m.error='1.3.1升级：旧审核与质量门槛须重新检查' AND c.state='ready' AND c.historical=0 AND json_extract(c.evidence_json,'$.qualification.status')='contactable' ORDER BY m.id LIMIT 1")
+            held=self.store.one("SELECT m.id FROM messages m JOIN contacts c ON c.id=m.contact_id WHERE m.kind='initial' AND m.origin='ai' AND m.state='held' AND m.attempt_at IS NULL AND m.error='1.3.1升级：旧审核与质量门槛须重新检查' AND c.state IN ('ready','queued') AND c.historical=0 AND json_extract(c.evidence_json,'$.qualification.status')='contactable' ORDER BY m.id LIMIT 1")
             if held:
                 self.store.job('recheck',{'message_id':held['id']})
                 self.store.update_message(held['id'],error='升级草稿已安排独立 AI 重新审核')
