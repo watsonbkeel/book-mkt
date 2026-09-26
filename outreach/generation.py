@@ -7,6 +7,7 @@ from .evidence import sources,validate_brief
 from .limits import chain,checkpoint
 from .domain import CHAPTERS,blocked_mailbox,policy_text_guard,opt_out,sensitive_request
 from .safety import domain_conflict
+from .triage import CLASSIFICATION_VERSION
 
 class Generation:
     def materials(self,cid):
@@ -41,7 +42,7 @@ class Generation:
             'contract':row['contract_version'],'policy':POLICY_VERSION,'positioning':POSITIONING_VERSION,'prompts':PROMPT_VERSION,'book':book_version(cfg),'sources':ev,'assets':assets,
             'contact':{k:c[k] for k in ('name','email','eligibility','permission_note','evidence_json','verified_at','source_url','fit_excerpt')},
             'profiles':profile,'inbound':inbound,'config':{k:cfg[k] for k in ('sender_name','sender_email','company_name','postal_address','public_url','outbound_mode','outreach_scope','require_dmarc','trusted_authserv_id','max_source_age_days','quality_min_each','quality_min_mean','ku_enrolled_until')},
-            'token':c['token']})
+            'token':c['token'],**({'classification_version':CLASSIFICATION_VERSION} if row['kind']!='initial' else {})})
     def remember(self,mid,db):
         r=dict(db.execute('SELECT * FROM messages WHERE id=?',(mid,)).fetchone())
         db.execute('INSERT OR IGNORE INTO draft_revisions VALUES(?,?,?,?,?,?)',(mid,r['revision'],r['subject'],r['body'],r['evidence'],time.time()))

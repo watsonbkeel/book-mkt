@@ -27,6 +27,8 @@ Operational errors use `contacts.runtime_error` or message/job errors, never per
 
 ## Invitations and replies
 
+Inbound handling and continuous operation are documented in [CONTINUOUS_REPLY_TRIAGE](CONTINUOUS_REPLY_TRIAGE.md). The `reply-triage-1` classification prompt distinguishes refusal of contact from a negative answer to a narrower question. The program maps intent to stop-contact, auto-reply or human handling; automated notifications keep their existing ignore path. Classification version participates in reply review bindings only.
+
 Allowed next steps: chapter_recommendation, discuss_application, example, none. A local original teaching example must first be generated, independently checked and stored as an approved `assets` row. Only then may initial copy offer its exact ID/version. This is not a book excerpt, real customer result, attachment or complete product promise.
 
 Replies use the reply route for interested/question/reading/feedback instead of fixed responses. Classification/refusal/DMARC/thread/Reply-To and two-round limits remain. If the saved example is requested, its exact approved text must appear in the response before any optional book discussion; buying/KU cannot be a prerequisite. Missing/version-mismatched assets hold. A newer human inbound invalidates old generation/review and is checked again at dispatch. An unsent held reply may be redone by updating the same inbound-linked record and advancing revision; its unique key is retained. SMTP-attempted replies are never recreated.

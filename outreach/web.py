@@ -20,6 +20,7 @@ from .safety import record_event,clear_circuit
 from .domain import validate_initial,safe_header
 from .domain import csv_safe,normalize_email,policy_text_guard,BOOK_TITLE,CHAPTERS,range_bounds
 from .qualification import annotate,summary as qualification_summary,with_human_fit_quote,with_permission
+from .triage import handling_label
 
 QUALIFICATION_FIELDS="c.*,(SELECT COUNT(*) FROM evidence_sources e WHERE e.contact_id=c.id AND e.active=1) AS active_snapshot_count"
 QUALIFICATION_QUERY='SELECT '+QUALIFICATION_FIELDS+' FROM contacts c'
@@ -41,6 +42,7 @@ def create_app(data_dir=None,secure_cookie=None):
     def fmt(ts):
         return datetime.fromtimestamp(float(ts),ZoneInfo(config.get()['timezone'])).strftime('%Y-%m-%d %H:%M') if ts else '—'
     templates.env.filters['when']=fmt;templates.env.filters['state']=lambda s:STATE_NAMES.get(s,s)
+    templates.env.filters['handling']=handling_label
     templates.env.filters['safeurl']=lambda u:u if isinstance(u,str) and urlsplit(u).scheme=='https' and not urlsplit(u).username else ''
     def logged(request):
         a=store.state('admin');return bool(a and request.session.get('admin')==a['username'] and request.session.get('version')==a['version'])
@@ -293,7 +295,7 @@ def create_app(data_dir=None,secure_cookie=None):
         if reply in ('yes','no'):
             clauses.append(('' if reply=='yes' else 'NOT ')+"EXISTS(SELECT 1 FROM messages r WHERE r.inbound_id=m.id AND r.state='accepted')")
         pg=max(1,min(10000,int(request.query_params.get('p','1'))))
-        rows=store.all("SELECT m.*,c.name,(SELECT COUNT(*) FROM messages r WHERE r.inbound_id=m.id AND r.state='accepted') AS answered FROM messages m LEFT JOIN contacts c ON c.id=m.contact_id WHERE "+' AND '.join(clauses)+' ORDER BY m.id DESC LIMIT 40 OFFSET ?',args+[(pg-1)*40])
+        rows=store.all("SELECT m.*,c.name,(SELECT COUNT(*) FROM messages r WHERE r.inbound_id=m.id AND r.state='accepted') AS answered,(SELECT state FROM messages r WHERE r.inbound_id=m.id AND r.state!='superseded' ORDER BY id DESC LIMIT 1) AS reply_state,(SELECT origin FROM messages r WHERE r.inbound_id=m.id AND r.state!='superseded' ORDER BY id DESC LIMIT 1) AS reply_origin FROM messages m LEFT JOIN contacts c ON c.id=m.contact_id WHERE "+' AND '.join(clauses)+' ORDER BY m.id DESC LIMIT 40 OFFSET ?',args+[(pg-1)*40])
         return render(request,'messages.html',rows=rows,direction=direction,state=state,reply=reply,kind=kind,category=category,start=start,end=end,p=pg)
     @app.get('/messages/{mid}',response_class=HTMLResponse)
     async def message_detail(request:Request,mid:int):
@@ -301,6 +303,8 @@ def create_app(data_dir=None,secure_cookie=None):
         if not m:raise HTTPException(404)
         c=store.contact(m['contact_id']) if m['contact_id'] else None
         associated=store.all('SELECT * FROM messages WHERE inbound_id=? OR id=? ORDER BY id',(mid,m['inbound_id'] or -1))
+        replies=[r for r in associated if r['inbound_id']==mid and r['state']!='superseded']
+        if replies:m.update(reply_state=replies[-1]['state'],reply_origin=replies[-1]['origin'],answered=any(r['state']=='accepted' for r in replies))
         from .mail import render_body
         from .contracts import framed
         preview=render_body(framed(c,m['body']),c,config.get()) if c and m['direction']=='outbound' and m['origin']=='ai' else m['body']

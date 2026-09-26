@@ -47,6 +47,18 @@ def test_no_authorization_export_leak(client):
     assert c.get('/export/messages.csv',follow_redirects=False).status_code==303
     login(c);r=c.get('/export/messages.csv');assert r.status_code==200
 
+def test_inbox_and_detail_show_three_handling_outcomes(client):
+    c,app=client;login(c);s=app.state.store
+    cid=s.add_contact(name='Synthetic Adult',email='triage@example.org')
+    for state,intent,label in [('processed','opt_out','停止联系 · 不回复'),
+                              ('classified','question','自动回复 · 待生成或审核'),
+                              ('human_review','','人工处理')]:
+        mid=s.add_message(contact_id=cid,direction='inbound',kind='human',state=state,
+                          classification=intent,body='Synthetic message',subject='Synthetic triage',
+                          message_id=f'<synthetic-{state}@example.org>')
+        assert label in c.get('/inbox').text
+        assert '处理结果：'+label in c.get(f'/messages/{mid}').text
+
 def test_historical_import_not_counted_as_system_send(client, monkeypatch):
     from pathlib import Path
     from outreach.history import import_history

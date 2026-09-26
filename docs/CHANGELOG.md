@@ -1,4 +1,11 @@
-# Unreleased editorial preview
+# Continuous reply triage
+
+- Expose stop-contact / automatic-reply / human handling in the inbox and message detail, retain refusal evidence, and distinguish a negative answer about KU from declining contact in the classification prompt.
+- Prioritize durable reply stages over research work; deduplicate by inbound ID across stages. A manual case does not block other messages. Classification version invalidates old reply reviews only.
+- Status output reads the actual database schema. Existing automation defaults, migration pause, send limits, mailbox checks and suppression remain unchanged.
+- Production classification/reply/review use the author's existing Sonnet Profile; continued operation is explicitly authorized by the author. No new provider or synthetic test email is required.
+
+# Editorial positioning preview history
 
 - Versioned author positioning now describes capability expansion through planning, multiple advisor challenges, human choices, execution and independent checks. The same source informs briefs, complete first messages, independent review, approved teaching examples and replies.
 - First-message body range is 80–120 words. New positioning/prompt versions invalidate old unsent approvals; old approved examples require current book/policy/source review binding before a new offer.

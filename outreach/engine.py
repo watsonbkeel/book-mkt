@@ -14,6 +14,7 @@ from .safety import domain_conflict, record_event, trip
 from .generation import Generation
 from .contracts import framed
 from .qualification import evidence_data
+from .triage import intent_action,CLASSIFICATION_VERSION
 
 class Engine(Generation):
     def __init__(self,store,config,ai=None,smtp=None,imap=None):
@@ -76,6 +77,10 @@ class Engine(Generation):
         if cid and not isauto:
             # Supersede queued automatic replies to older inbound text; never send a stale answer.
             self.store.execute("UPDATE messages SET state='cancelled',error='newer inbound message' WHERE contact_id=? AND direction='outbound' AND kind IN ('reply','manual') AND state IN ('queued','draft')",(cid,))
+        if state=='human_review' or classification in ('opt_out','complaint'):
+            action='human_review' if state=='human_review' else 'stop_contact'
+            self.store.update_message(mid,evidence=json.dumps({'handling':action,'reason':reason,'classification_version':CLASSIFICATION_VERSION},ensure_ascii=False))
+            self.store.audit('inbound_triaged',f'message={mid}; action={action}; rule=ingest')
         return mid
     def process_inbound(self,mid):
         msg=self.store.message(mid)
@@ -94,9 +99,15 @@ class Engine(Generation):
             self.store.update_message(mid,state='human_review',error='没有可可靠分离的新回复文字，需人工查看');return
         try:
             info=self.ai.classify(contact,text);intent=info['intent']
+            # The program derives handling from intent; a model cannot override the send gates.
+            action=intent_action(intent)
+            info={**info,'handling':action,'classification_version':CLASSIFICATION_VERSION}
+            self.store.audit('inbound_triaged',f'message={mid}; action={action}; intent={intent}')
+            self.store.update_message(mid,evidence=json.dumps(info,ensure_ascii=False))
             if intent in ('decline','opt_out'):
                 self.store.suppress(contact['id'],'模型识别拒绝/退订，保守停发');record_event(self.store,intent if intent=='decline' else 'opt_out',msg['message_id'],contact['id'],mid,'模型识别停发，保守处理');self.store.update_message(mid,state='processed',classification=intent);return
-            if intent in ('human_review','automated'):
+            if action in ('human_review','ignore_notification'):
+                if action=='human_review':intent='human_review'
                 self.store.update_message(mid,state='human_review' if intent=='human_review' else 'ignored',classification=intent,kind='automated' if intent=='automated' else 'human',evidence=json.dumps(info,ensure_ascii=False));return
             # Reading/exercise flags always mean explicit self-report, never inferred from opening or clicks.
             flags={}

@@ -73,7 +73,7 @@ Book: Use AI to Direct AI / Huashan Chen / B0HK4KMQF4
 - Suppressed addresses: {s['suppressed']}
 
 ## Operational state
-- Generation contract: 3; database schema: 4
+- Generation contract: 3; database schema: {store.one('SELECT version FROM schema_version')['version']}
 - Outbound mode: {c['outbound_mode']} (all AI drafts require independent check)
 - Model routes: {store.all('SELECT task,profile_id FROM task_routes ORDER BY task')}
 - Research interval: {c['research_interval_minutes']} minutes

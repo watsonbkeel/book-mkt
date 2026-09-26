@@ -157,8 +157,8 @@ class Store:
         if kind not in {'research','poll','test_smtp','test_imap','test_ai','draft','manual_reply','verify_contact','ai_reverify_contact','recheck','redraft','reply_pipeline','test_profile','create_asset','send_once'}:raise ValueError('未知任务')
         encoded=json.dumps(payload or {},sort_keys=True)
         with self.tx() as c:
-            if kind in ('draft','redraft'):
-                field='contact_id' if kind=='draft' else 'message_id'
+            if kind in ('draft','redraft','reply_pipeline'):
+                field={'draft':'contact_id','redraft':'message_id','reply_pipeline':'inbound_id'}[kind]
                 existing=c.execute("SELECT id FROM jobs WHERE kind=? AND state IN ('queued','running') AND json_extract(payload,?)=?",(kind,'$.'+field,(payload or {}).get(field))).fetchone()
                 if existing:return existing[0]
             active=c.execute("SELECT id FROM jobs WHERE kind=? AND payload=? AND state IN ('queued','running')",(kind,encoded)).fetchone()

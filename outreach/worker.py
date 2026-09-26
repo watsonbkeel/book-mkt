@@ -34,7 +34,7 @@ class Worker:
             raise
     def job_once(self):
         with self.store.tx() as db:
-            row=db.execute("SELECT * FROM jobs WHERE state='queued' AND COALESCE(json_extract(payload,'$.not_before'),0)<=? ORDER BY CASE WHEN kind='research' THEN 1 ELSE 0 END,id LIMIT 1",(time.time(),)).fetchone()
+            row=db.execute("SELECT * FROM jobs WHERE state='queued' AND COALESCE(json_extract(payload,'$.not_before'),0)<=? ORDER BY CASE WHEN kind='poll' THEN 0 WHEN kind='reply_pipeline' THEN 1 WHEN kind='research' THEN 3 ELSE 2 END,id LIMIT 1",(time.time(),)).fetchone()
             if not row:return False
             row=dict(row);db.execute("UPDATE jobs SET state='running',started_at=? WHERE id=?",(time.time(),row['id']))
         kind=row['kind'];payload=json.loads(row['payload']);result=None
@@ -102,11 +102,11 @@ class Worker:
             except Exception:pass  # poll_once persisted the failure and the next allowed attempt.
         # Due mail is dispatched before model work, so slow research cannot starve sends.
         if self.running:self.engine.dispatch()
-        worked=self.job_once();cfg=self.config.get()
-        if not worked and cfg['auto_reply_enabled']:
+        if cfg['auto_reply_enabled']:
             inbound=self.store.one("SELECT id FROM messages WHERE state='new' AND direction='inbound' ORDER BY id LIMIT 1")
             if inbound:
-                self.engine.process_inbound(inbound['id']);worked=True
+                self.engine.process_inbound(inbound['id'])
+        worked=self.job_once();cfg=self.config.get()
         if not worked and cfg['research_enabled']:
             held=self.store.one("SELECT m.id FROM messages m JOIN contacts c ON c.id=m.contact_id WHERE m.kind='initial' AND m.origin='ai' AND m.state='held' AND m.attempt_at IS NULL AND m.error='1.3.1升级：旧审核与质量门槛须重新检查' AND c.state IN ('ready','queued') AND c.historical=0 AND json_extract(c.evidence_json,'$.qualification.status')='contactable' ORDER BY m.id LIMIT 1")
             if held:
