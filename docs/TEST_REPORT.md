@@ -1,7 +1,27 @@
-# Current test report — 1.3
+# 当前测试与验证边界
 
-Baseline204 → final257 passing isolated tests. Python compilation, shell syntax and real local authenticated Chromium checks passed. No paid APIs, production mail or deployment were used.
+日期：2026-09-26。基于 main `2a727207fc9b582b80091f98d85b968e0eff6656`，本次增量为2000人候选池、过期未发档案释放容量、研究调度与文档修正。
 
-Full evidence and limitations: [ACCEPTANCE_1.3.md](ACCEPTANCE_1.3.md), [evidence_upgrade](evidence_upgrade/).
+## 本地回归
 
-The former188-test v1.2 report is archived at [history_v1.2/TEST_REPORT.md](history_v1.2/TEST_REPORT.md); it is not the current result.
+在 `tools/Dockerfile.offline-tests` 构建的 Python3.13 镜像中，以 `--network none`、只读源码、临时数据库、合成联系人和 mock 运行：
+
+```bash
+python -m pytest -q -p no:cacheprovider
+python -m compileall -q outreach
+```
+
+完整结果：**338 passed，0 failed，1 条 Starlette/AnyIO 弃用警告**。最后完整pytest耗时115.29秒。源码差异检查另执行 `git diff --check`。本次新增/调整测试及原因见 [候选池说明](CANDIDATE_POOL_2000.md)。此前三种回复处理的334测试属于该阶段结果，已包含在当前回归中。
+
+覆盖：1999→2000批次边界、2000满额不调用模型、混合候选状态容量、过期未发ready/queued归档及accepted/uncertain保留、24轮2400条历史留存、150号之后复核、到期研究调度、分类/审核/停发/限频/小时收件与人工接管。所有真实服务行为均用mock替代。
+
+页面使用已登录 TestClient 覆盖收件列表/详情等服务端渲染。**本次没有浏览器截图或跨浏览器视觉验收。** 文档检查包括全库Markdown的用途分类、当前代码一致性、相对链接、代码块和公开内容扫描，详见 [文档复核报告](DOCUMENTATION_AUDIT.md)。
+
+## 真实模型与生产不是上述测试
+
+- 曾在隔离synthetic预览中实际调用配置模型：首轮38次、修订轮40次。修订轮8封首信中7封通过、1封held；两组模拟回复中1组完成，另1组因预算耗尽缺失。不能宣称完整文案验收或外部编辑批准通过，也不公开这些文件之外的生产数据。
+- 作者随后另行授权部署、GitHub合并及持续运行。生产使用自有服务，运行结果不由mock测试代替。三种回复修复部署时已确认schema5、Tailscale健康、三个自动化开关启用；真实明确拒绝没有收到自动回复。
+- 本次候选池更新不发测试邮件、不增加模型测试请求；部署只核对服务、配置和容量。正常授权自动化可能按原计划调用服务或发送邮件，不能把它记作受控测试。
+- 当前未完成：跨供应商推理参数实际采用的证明、任意新领域的生产验收、高吞吐发送验收、此次主机灾难恢复演练、完整两组真实模型回复预览。
+
+历史记录按各自时间/提交解释：[1.3本地验收](ACCEPTANCE_1.3.md)、[1.3.1修复报告](FIX_REPORT_1.3.1.md)、[1.3.1生产验收](DEPLOYMENT_1.3.1.md)。没有重新执行的历史步骤不当作本轮已通过。

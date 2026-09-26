@@ -1,3 +1,5 @@
+> **历史或阶段性记录，非当前操作指南。** 本文的版本、上限、命令、测试与部署状态只对应原记录阶段；保留原文供追溯。当前1.3.2/schema5、2000人候选池及操作方法见[部署与使用](../README_部署与使用.md)。
+
 # 1.3 implementation plan
 
 Baseline: main a58f0467d680f09572f929cec3757ffd189e9ed9; clean HEAD, no divergence. Work branch: feat/evidence-email-upgrade. Specification: CODEX_BOOK_MKT_UPGRADE.md (replaces the old Reader Studio instruction entirely). No production data or ZIP input.

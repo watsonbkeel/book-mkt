@@ -13,7 +13,7 @@ from .db import Store
 def qualification_report(store,config,now=None):
     from collections import Counter
     from .qualification import effective_status,evidence_data,view_reasons
-    from .candidate_lifecycle import PENDING_LIMIT
+    from .candidate_lifecycle import PENDING_LIMIT,active_pool_size
     from .domain import day_bounds
     now=time.time() if now is None else now;cfg=config.get()
     rows=store.all("SELECT c.*,(SELECT COUNT(*) FROM evidence_sources e WHERE e.contact_id=c.id AND e.active=1) AS active_snapshot_count FROM contacts c WHERE c.historical=0 AND c.state!='deleted'")
@@ -32,6 +32,7 @@ def qualification_report(store,config,now=None):
     return {'outreach_scope':cfg['outreach_scope'],'scope_confirmed':cfg['scope_confirmed'],
             'effective_status':dict(sorted(statuses.items())),'reason_codes':dict(sorted(reasons.items())),
             'countries':dict(sorted(countries.items())),'pending':{'used':sum(row['state']=='candidate' for row in rows),'limit':PENDING_LIMIT},
+            'candidate_pool':{'used':active_pool_size(store),'limit':cfg['queue_target']},
             'model_usage':{'by_task':dict(sorted(usage.items())),'marketing_used':marketing,'marketing_limit':cfg['daily_api_calls'],'research_limit':cfg['daily_research_calls'],'research_used':research}}
 
 def qualification_report_readonly(data):

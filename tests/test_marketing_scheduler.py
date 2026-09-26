@@ -148,3 +148,14 @@ def test_daily_dashboard_counts_attempts_and_real_window(setup):
     report=schedule_snapshot(s,c,start)['production'];assert report['remaining_slots']==10 and report['queue_gap']==10
     late=datetime(2026,9,25,19,31,tzinfo=ZoneInfo('America/New_York')).timestamp()
     assert schedule_snapshot(s,c,late)['production']['remaining_slots']==0
+
+
+def test_due_research_does_not_wait_for_all_ready_drafts(setup):
+    s,c,cid,e,w=setup;c.update({'research_enabled':True})
+    w.tick()
+    assert s.one("SELECT state FROM jobs WHERE kind='research'")['state']=='queued'
+    assert not s.one("SELECT id FROM jobs WHERE kind='draft'")
+    # Simulate completion; remaining interval can be used to prepare an eligible draft.
+    s.execute("UPDATE jobs SET state='done' WHERE kind='research'")
+    w.tick()
+    assert s.one("SELECT state FROM jobs WHERE kind='draft'")['state']=='queued'

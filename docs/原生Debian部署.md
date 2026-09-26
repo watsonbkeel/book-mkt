@@ -1,36 +1,35 @@
-# 原生 Debian + systemd（Compose之外的备选）
+# 原生 Debian + systemd（Compose备选）
 
-要求Python 3.11+、venv、系统CA证书与网络出站。自动测试实际在Python3.13.5运行；Debian原生解释器仍需执行同样测试。以下命令会创建独立用户、目录和两个服务；由服务器管理员核对后执行，不覆盖现有业务。
+优先使用 [Docker部署指南](../README_部署与使用.md)。原生模式只运行一套Web/Worker，不与Compose共用同一运行账户/数据目录。项目容器和本轮测试使用Python3.13；若系统发行版提供不同版本，先在该解释器执行完整测试，不能仅凭版本号声称兼容。
+
+准备好Git、Python解释器、venv、CA证书后，由管理员创建独立系统用户和目录。以下命令假设尚未安装同名用户/服务，执行前先核对：
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y python3 python3-venv python3-pip ca-certificates unzip
 sudo useradd --system --home /var/lib/book-reader-outreach --shell /usr/sbin/nologin outreach
-sudo mkdir -p /opt/book-reader-outreach
-# 把解压出来的整个包内容复制到 /opt/book-reader-outreach 后继续
+sudo git clone https://github.com/watsonbkeel/book-mkt.git /opt/book-reader-outreach
 cd /opt/book-reader-outreach
 sudo python3 -m venv .venv
 sudo .venv/bin/pip install -r requirements.txt
 sudo install -d -m 700 -o outreach -g outreach /var/lib/book-reader-outreach
 sudo -u outreach env OUTREACH_DATA_DIR=/var/lib/book-reader-outreach \
-  /opt/book-reader-outreach/.venv/bin/python -m outreach.cli init --seed-history
-# 保存上一步随机密码
+  /opt/book-reader-outreach/.venv/bin/python -m outreach.cli init
+# 保存初始化随机密码；不使用--seed-history
 sudo cp deploy/outreach-web.service deploy/outreach-worker.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now outreach-web outreach-worker
 sudo systemctl status outreach-web outreach-worker
 ```
 
-默认仅监听127.0.0.1:8096，使用README里的SSH隧道访问。启用公网HTTPS后，在outreach-web.service中把OUTREACH_SECURE_COOKIE改为true，daemon-reload并重启web。不要在公网使用未加密HTTP登录。
+默认仅监听127.0.0.1:8096，通过SSH隧道访问。原生service不读取Compose的 `.env`：若需Tailscale绑定，管理员需修改Web service的 `--host` 为本机Tailscale IP，daemon-reload并重启。HTTPS反向代理下修改 `OUTREACH_SECURE_COOKIE=true`；不要将未加密后台直接公开。
 
 ```bash
 sudo journalctl -u outreach-worker -n 100 --no-pager
 sudo -u outreach env OUTREACH_DATA_DIR=/var/lib/book-reader-outreach \
+  /opt/book-reader-outreach/.venv/bin/python -m outreach.cli status
+sudo -u outreach env OUTREACH_DATA_DIR=/var/lib/book-reader-outreach \
   /opt/book-reader-outreach/.venv/bin/python -m outreach.cli pause
 ```
 
-备份：选择只有outreach用户能写的私有目录，例如 `/var/lib/book-reader-backups`；使用 `python -m outreach.cli backup --output ...`。不要把含主密钥的备份放入Nginx静态目录。
+备份使用CLI `backup --output`，选择只有服务用户可写的私有位置，不能放到Web静态目录。schema、回退和恢复边界参见 [当前升级指南](UPGRADE_ROLLBACK_1.3.md)，将其中Compose停启步骤换成相应systemctl操作，不直接使用旧版本升级脚本。保留源码、虚拟环境、数据及密钥，更新后核查并恢复已获授权的开关。
 
-系统日期、DNS与证书必须正确；SMTP/IMAP使用应用密码而不是在支持OAuth但禁密码的账号上硬试。服务器出站防火墙要允许对应邮件端口与HTTPS443。
-
-现有部署切换代码前必须备份并按`升级与回退_v1.2.md`执行。旧时区不随版本默认值改变，设置页确认应用美东预设后再启用。
+默认自动化关闭；配置流程、联系资格和邮箱保护与Compose相同。此页是原生操作示例，不表示本轮已在原生systemd上真实部署验收。

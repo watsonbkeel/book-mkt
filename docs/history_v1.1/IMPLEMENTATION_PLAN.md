@@ -1,3 +1,5 @@
+> **历史或阶段性记录，非当前操作指南。** 本文的版本、上限、命令、测试与部署状态只对应原记录阶段；保留原文供追溯。当前1.3.2/schema5、2000人候选池及操作方法见[部署与使用](../../README_部署与使用.md)。
+
 # Reader Studio v1.1 implementation plan
 
 Goal: one-hour inbox polling and evidence-based outreach hardening without replacing v1.0 architecture.

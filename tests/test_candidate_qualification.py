@@ -230,14 +230,14 @@ def test_legacy_candidate_backlog_does_not_block_qualification_research(tmp_path
 
     model = Model()
     result = Researcher(store, config, model).run()
-    assert result['added'] == 0 and model.calls == []
-    assert '100' in result['reason']
+    assert result['added'] == 0 and model.calls == ['knowledge']
+    assert store.one("SELECT COUNT(*) n FROM contacts WHERE state='candidate'")['n']==100
 
 
 def test_qualification_backlog_still_caps_new_candidate_research(tmp_path):
     store = Store(tmp_path / 'qualified-backlog.sqlite3'); store.init(); config = Config(store, tmp_path)
     evidence = json.dumps({'qualification': {'status': 'evidence_pending'}})
-    for index in range(100):
+    for index in range(2000):
         store.add_contact(name=f'Pending Person {index}', email=f'person{index}@pending-{index}.example',
                           state='candidate', evidence_json=evidence)
 
@@ -247,7 +247,7 @@ def test_qualification_backlog_still_caps_new_candidate_research(tmp_path):
 
     model = Model()
     result = Researcher(store, config, model).run()
-    assert result == {'added': 0, 'reason': '待核实候选已达100人；过期自动归档后恢复研究'}
+    assert result == {'added': 0, 'reason': '待核实候选已达2000人；过期自动归档后恢复研究'}
     assert model.calls == []
 
 

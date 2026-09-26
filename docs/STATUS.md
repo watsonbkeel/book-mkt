@@ -1,9 +1,14 @@
-# Delivery status — 1.3
+# 状态说明
 
-Local implementation complete;257 isolated tests passed. Authenticated real local Chromium:5 pages × desktop1440/mobile390, HTTP200 and no document overflow. Model profiles/protocols exercised through mocks only. Real model/search/SMTP/IMAP calls:0. Production deployment:0.
+当前源码应用版本1.3.2、schema5。此文件是公开文档入口，**不是实时生产统计**，不保存私人联系人、邮件、凭证或备份。
 
-Feature branch: feat/evidence-email-upgrade. Baseline main: a58f0467d680f09572f929cec3757ffd189e9ed9. No reset to baseline; no old ZIP input; public history stays empty. Source and synthetic evidence only are delivered. Separate authorization is required for real profile interoperability, production mailbox tests and rollout.
+查看实际实例状态：
 
-See ACCEPTANCE_1.3.md for actual coverage and outstanding live checks, UPGRADE_ROLLBACK_1.3.md for operator commands, and evidence_upgrade/ for reproducible mock/browser results. No quality score is a prediction of replies, sales or reading.
+```bash
+docker compose exec -T web python -m outreach.cli status
+docker compose exec -T web python -m outreach.cli qualification-report
+```
 
-Implementation commit: `ebc3d9a3435f6b75b160d83cb0153c93f8f1496b`. Release manifest records the packaged documentation commit.
+Worker约每小时生成私有数据目录下的 `STATUS.md`。GitHub中的文件不会自动反映服务是否运行、今日发送数量或开关变化。
+
+本地验证见 [TEST_REPORT](TEST_REPORT.md)，功能与用法见 [部署指南](../README_部署与使用.md)，历史记录见 [文档索引](INDEX.md)。

@@ -16,6 +16,8 @@ def setup(tmp_path):
 
 
 def test_multi_year_backlog_recovers_without_erasing_history(tmp_path,monkeypatch):
+    # Keep the 24-cycle history test compact; the real 2000 boundary is tested below.
+    monkeypatch.setattr('outreach.candidate_lifecycle.PENDING_LIMIT',100)
     store,config=setup(tmp_path)
     now=[time.time()];monkeypatch.setattr(time,'time',lambda:now[0])
     age=config.get()['max_source_age_days']*86400
@@ -72,9 +74,9 @@ def test_fresh_snapshot_extends_grace_but_missing_snapshot_does_not_expire_new_c
     assert archive_expired(store,30,now+30*86400+1)==[fresh,older]
 
 
-def test_batch_stops_at_100_and_uses_controlled_persona(tmp_path):
+def test_batch_stops_at_2000_and_uses_controlled_persona(tmp_path):
     store,config=setup(tmp_path)
-    for i in range(99):store.add_contact(name='Pending Adult',email=f'adult@pending-{i}.example')
+    for i in range(1999):store.add_contact(name='Pending Adult',email=f'adult@pending-{i}.example')
     class Model:
         def discover(self,persona):
             return {'candidates':[{'name':'Synthetic Adult','email':f'adult@new-{i}.example','persona':'invented-label',
@@ -89,7 +91,8 @@ def test_batch_stops_at_100_and_uses_controlled_persona(tmp_path):
     research=Researcher(store,config,Model(),Fetcher(),lambda _: {'status':'mx'})
     result=research.run()
     assert result['added']==1 and not result['errors']
-    assert store.one("SELECT COUNT(*) n FROM contacts WHERE state='candidate'")['n']==100
+    assert store.one("SELECT COUNT(*) n FROM contacts WHERE state='candidate'")['n']==2000
+    assert '2000' in research.run()['reason']
     contact=store.one("SELECT * FROM contacts WHERE email='adult@new-0.example'")
     assert contact['persona']=='knowledge'
     assert json.loads(contact['evidence_json'])['qualification']['status']=='permission_required'
@@ -98,6 +101,55 @@ def test_batch_stops_at_100_and_uses_controlled_persona(tmp_path):
     store.execute('UPDATE evidence_sources SET retrieved_at=0')
     assert research.run()['duplicate']==1
     assert store.contact(contact['id'])['state']=='archived'
+
+
+def test_shared_pool_limit_config_and_retained_history(tmp_path):
+    import pytest
+    from outreach.candidate_lifecycle import active_pool_size
+    store,config=setup(tmp_path)
+    assert config.get()['queue_target']==2000
+    config.update({'queue_target':2000})
+    with pytest.raises(ValueError):config.update({'queue_target':2001})
+    with pytest.raises(ValueError):config.update({'daily_limit':11})
+    config.update({'queue_target':5})
+    for i,state in enumerate(('candidate','candidate','ready','queued','ready','archived','contacted','suppressed')):
+        store.add_contact(name='Synthetic Adult',email=f'pool-{i}@example.org',state=state)
+    assert active_pool_size(store)==5
+    class Forbidden:
+        def discover(self,*args):raise AssertionError('Full pool must not call model')
+    assert '5人' in Researcher(store,config,Forbidden()).run()['reason']
+    assert len(store.contacts())==8
+
+
+def test_reverification_reaches_candidates_after_first_150(tmp_path):
+    store,config=setup(tmp_path);config.update({'research_enabled':True})
+    now=time.time()
+    for i in range(151):
+        cid=store.add_contact(name='Synthetic Adult',email=f'adult-{i}@example.org',source_url='https://example.org/about')
+        if i<150:store.set_state(f'ai_reverify_attempt_{cid}',now)
+    Worker(store,config,tmp_path).tick()
+    job=store.one("SELECT * FROM jobs WHERE kind='ai_reverify_contact'")
+    assert json.loads(job['payload'])['contact_id']==cid
+
+
+def test_expired_unsent_ready_and_queued_release_pool_without_touching_attempts(tmp_path):
+    from outreach.candidate_lifecycle import active_pool_size
+    store,config=setup(tmp_path);now=time.time();ids=[]
+    for i,state in enumerate(('ready','queued','queued','queued')):
+        cid=store.add_contact(name='Synthetic Adult',email=f'old-{i}@example.org',state=state)
+        ids.append(cid)
+        store.execute('UPDATE contacts SET created_at=? WHERE id=?',(now-31*86400,cid))
+    draft=store.add_message(contact_id=ids[1],direction='outbound',kind='initial',state='queued',
+                            subject='Synthetic',body='Synthetic',message_id='<old-draft@example.org>')
+    for cid,state in zip(ids[2:],('accepted','uncertain')):
+        store.add_message(contact_id=cid,direction='outbound',kind='initial',state=state,
+                          subject='Synthetic',body='Synthetic',message_id=f'<{state}@example.org>',attempt_at=now-86400)
+    assert active_pool_size(store)==4
+    assert archive_expired(store,30,now)==ids[:2]
+    assert active_pool_size(store)==2 and store.message(draft)['state']=='held'
+    assert [store.contact(cid)['state'] for cid in ids[2:]]==['queued','queued']
+    assert [r['state'] for r in store.all("SELECT state FROM messages WHERE attempt_at IS NOT NULL ORDER BY id")]==['accepted','uncertain']
+    assert json.loads(store.contact(ids[0])['evidence_json'])['archive']['previous_state']=='ready'
 
 
 def test_archived_ui_permission_and_reverification_require_fresh_gates(tmp_path):

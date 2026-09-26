@@ -136,16 +136,13 @@ class Researcher:
     def __init__(self,store,config,ai,fetcher=None,dns_checker=None):
         self.store=store;self.config=config;self.ai=ai;self.fetcher=fetcher or SourceFetcher();self.dns_checker=dns_checker or MXChecker().check
     def run(self):
-        from .candidate_lifecycle import archive_expired, PENDING_LIMIT
-        from .engine import Engine
+        from .candidate_lifecycle import archive_expired, active_pool_size, PENDING_LIMIT
         c=self.config.get();now=time.time()
         archive_expired(self.store,c['max_source_age_days'],now)
-        engine=Engine(self.store,self.config)
-        queue=self.store.all("SELECT c.* FROM contacts c WHERE c.state IN ('ready','queued') AND (NOT EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=c.id AND m.kind IN ('initial','historical')) OR EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=c.id AND m.kind='initial' AND m.state IN ('draft','queued')))")
-        existing=sum(engine.eligible(contact,c,now) for contact in queue)
+        existing=active_pool_size(self.store)
         pending=self.store.one("SELECT COUNT(*) n FROM contacts WHERE state='candidate'")['n']
-        if pending>=PENDING_LIMIT:return {'added':0,'reason':'待核实候选已达100人；过期自动归档后恢复研究'}
-        if existing>=c['queue_target']:return {'added':0,'reason':'候选队列已达目标，停止额外搜索'}
+        if pending>=PENDING_LIMIT:return {'added':0,'reason':f'待核实候选已达{PENDING_LIMIT}人；过期自动归档后恢复研究'}
+        if existing>=c['queue_target']:return {'added':0,'reason':f'活跃候选池已达{c["queue_target"]}人；释放名额后继续研究'}
         rotation=int(self.store.state('research_rotation',0));persona=(['knowledge']*6+['creator']*3+['operator'])[rotation%10]
         self.store.set_state('research_rotation',rotation+1)
         result,sources=self.ai.discover(persona)

@@ -94,7 +94,7 @@ class Worker:
             self.store.set_state('worker_heartbeat',time.time())
     def _tick(self):
         now=time.time();self.store.set_state('worker_heartbeat',now);cfg=self.config.get()
-        from .candidate_lifecycle import archive_expired
+        from .candidate_lifecycle import archive_expired,PENDING_LIMIT
         archive_expired(self.store,cfg['max_source_age_days'],now)
         # Sync first, so unsubscribe replies can cancel queued work before the send attempt.
         if cfg['imap_host'] and self.config.secret('imap_password'):
@@ -116,7 +116,7 @@ class Worker:
         if not worked and cfg['research_enabled']:
             # One candidate per cycle, with a durable per-contact cooldown even on failure.
             if now-self.store.state('last_ai_reverify_enqueue',0)>=300:
-                for candidate in self.store.all("SELECT id,source_url FROM contacts WHERE state='candidate' AND historical=0 AND source_url LIKE 'https://%' ORDER BY id LIMIT 150"):
+                for candidate in self.store.all("SELECT id,source_url FROM contacts WHERE state='candidate' AND historical=0 AND source_url LIKE 'https://%' ORDER BY id LIMIT ?",(PENDING_LIMIT,)):
                     cid=candidate['id']
                     if self.store.is_suppressed(cid) or now-self.store.state(f'ai_reverify_attempt_{cid}',0)<7*86400:continue
                     self.store.set_state(f'ai_reverify_attempt_{cid}',now)
@@ -124,14 +124,14 @@ class Worker:
                     self.store.job('ai_reverify_contact',{'contact_id':cid})
                     worked=True
                     break
+        if not worked and cfg['research_enabled'] and now-self.store.state('last_research_attempt',0)>cfg['research_interval_minutes']*60:
+            self.store.set_state('last_research_attempt',now)
+            self.store.job('research');worked=True
         if not worked and cfg['research_enabled']:
             candidates=self.store.all("SELECT c.* FROM contacts c WHERE c.state='ready' AND c.historical=0 AND json_extract(c.evidence_json,'$.qualification.status')='contactable' AND NOT EXISTS(SELECT 1 FROM messages m WHERE m.contact_id=c.id AND m.kind IN ('initial','historical')) AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.kind='draft' AND j.state IN ('queued','running') AND json_extract(j.payload,'$.contact_id')=c.id) ORDER BY c.id")
             ready=next((c for c in candidates if self.engine.eligible(c,cfg,now)),None)
             if ready:
                 self.store.job('draft',{'contact_id':ready['id']});worked=True
-            elif now-self.store.state('last_research_attempt',0)>cfg['research_interval_minutes']*60:
-                self.store.set_state('last_research_attempt',now)
-                self.store.job('research');worked=True
         # Dispatch again only if the turn still has time, e.g. a newly approved draft.
         from .limits import checkpoint
         if self.running and checkpoint()>10:self.engine.dispatch()

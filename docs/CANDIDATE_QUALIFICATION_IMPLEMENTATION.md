@@ -1,3 +1,5 @@
+> **历史或阶段性记录，非当前操作指南。** 本文的版本、上限、命令、测试与部署状态只对应原记录阶段；保留原文供追溯。当前1.3.2/schema5、2000人候选池及操作方法见[部署与使用](../README_部署与使用.md)。
+
 # Candidate Qualification Update
 
 Implementation against main 025362170e473d6e2fb085a1b6cef6a2378190d2 plus the existing uncommitted schema 4 worktree. Production deployment was subsequently authorized; see CANDIDATE_ARCHIVAL_PLAN.md and CANDIDATE_ARCHIVAL_DELIVERY.md for current behavior and verification.

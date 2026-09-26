@@ -227,7 +227,7 @@ def test_qualification_report_never_emits_email(env):
     assert 'outreach_scope' in output and 'pending' in output
     assert not re.search(r'[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}',output)
     assert before==(store.path.stat().st_mtime_ns,store.one('SELECT COUNT(*) n FROM audit')['n'])
-    assert qualification_report(store,config)['pending']['limit']==100
+    assert qualification_report(store,config)['pending']['limit']==2000
 
 
 def test_schema4_to5_pauses_and_preserves_reply_history(env):

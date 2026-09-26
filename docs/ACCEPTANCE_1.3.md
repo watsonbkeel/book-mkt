@@ -1,3 +1,5 @@
+> **历史或阶段性记录，非当前操作指南。** 本文的版本、上限、命令、测试与部署状态只对应原记录阶段；保留原文供追溯。当前1.3.2/schema5、2000人候选池及操作方法见[部署与使用](../README_部署与使用.md)。
+
 # 1.3 local acceptance
 
 Baseline: main `a58f0467d680f09572f929cec3757ffd189e9ed9`, clean working tree. Implemented on `feat/evidence-email-upgrade` without reverting HEAD or using an old ZIP. CODEX_BOOK_MKT_UPGRADE.md wholly replaces the older Reader Studio instruction. Implementation commit: `ebc3d9a3435f6b75b160d83cb0153c93f8f1496b`. The release manifest records the final packaged commit (including this acceptance record).

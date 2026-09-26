@@ -1,3 +1,5 @@
+> **历史或阶段性记录，非当前操作指南。** 本文的版本、上限、命令、测试与部署状态只对应原记录阶段；保留原文供追溯。当前1.3.2/schema5、2000人候选池及操作方法见[部署与使用](../README_部署与使用.md)。
+
 # Authorized deployment — 2026-09-25
 
 Deployed application 1.3.0 from commit `2ef461b004bcad3b33ace67b2d620f500bca4db6`, with a deployment-script correction described below. Existing Compose project, named data volume, Tailscale binding and administrator credentials were retained. Old 1.2 image remains available for rollback.

@@ -1,3 +1,5 @@
+> **历史或阶段性记录，非当前操作指南。** 本文的版本、上限、命令、测试与部署状态只对应原记录阶段；保留原文供追溯。当前1.3.2/schema5、2000人候选池及操作方法见[部署与使用](../README_部署与使用.md)。
+
 # Editorial preview plan (1.3.2 baseline)
 
 1. Put the author-approved capability-expansion position in one versioned content contract. Pass it to the existing brief, initial composition, review, asset and reply calls. Keep recipient evidence separate from the author's method claims.

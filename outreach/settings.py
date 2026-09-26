@@ -17,7 +17,7 @@ DEFAULTS={
  'search_mode':'native','brave_base_url':'https://api.search.brave.com/res/v1','research_countries':['US'],
  'timezone':'America/New_York','daily_limit':10,'gap_minutes':70,'window_start':'08:30','window_end':'19:30',
  'daily_reply_limit':20,'reply_gap_minutes':5,'max_thread_replies':2,'daily_thread_replies':2,
- 'daily_api_calls':60,'daily_research_calls':3,'daily_fetches':80,'research_batch_size':8,'queue_target':20,'research_interval_minutes':240,
+ 'daily_api_calls':60,'daily_research_calls':3,'daily_fetches':80,'research_batch_size':8,'queue_target':2000,'research_interval_minutes':240,
  'research_enabled':False,'sending_enabled':False,'auto_reply_enabled':False,'outbound_mode':'review',
  'outreach_scope':'consent_only','scope_confirmed':False,'sender_auth_confirmed':False,
  'evidence_source_chars':4000,'evidence_contact_chars':8000,'evidence_task_chars':48000,
@@ -27,7 +27,7 @@ SECRETS={'smtp_password','imap_password','api_key','brave_api_key'}
 BOOLS={k for k,v in DEFAULTS.items() if isinstance(v,bool)}
 INTS={k for k,v in DEFAULTS.items() if isinstance(v,int) and not isinstance(v,bool)}
 FLOATS={'quality_min_mean'}
-RANGES={'evidence_source_chars':(500,8000),'evidence_contact_chars':(1000,16000),'evidence_task_chars':(8000,64000),'research_interval_minutes':(30,1440),'domain_cooldown_days':(365,730),'daily_limit':(1,10),'gap_minutes':(61,240),'daily_reply_limit':(1,30),'reply_gap_minutes':(2,120),'max_thread_replies':(1,5),'daily_thread_replies':(1,3),'daily_api_calls':(5,200),'daily_research_calls':(1,150),'native_search_call_limit':(1,12),'daily_fetches':(5,500),'research_batch_size':(1,8),'queue_target':(5,40),'max_source_age_days':(1,30),'retention_days':(30,365),'smtp_port':(1,65535),'imap_port':(1,65535),'quality_min_each':(0,4),'quality_min_mean':(0,4.5)}
+RANGES={'evidence_source_chars':(500,8000),'evidence_contact_chars':(1000,16000),'evidence_task_chars':(8000,64000),'research_interval_minutes':(30,1440),'domain_cooldown_days':(365,730),'daily_limit':(1,10),'gap_minutes':(61,240),'daily_reply_limit':(1,30),'reply_gap_minutes':(2,120),'max_thread_replies':(1,5),'daily_thread_replies':(1,3),'daily_api_calls':(5,200),'daily_research_calls':(1,150),'native_search_call_limit':(1,12),'daily_fetches':(5,500),'research_batch_size':(1,8),'queue_target':(5,2000),'max_source_age_days':(1,30),'retention_days':(30,365),'smtp_port':(1,65535),'imap_port':(1,65535),'quality_min_each':(0,4),'quality_min_mean':(0,4.5)}
 class Config:
  def __init__(self,store,data_dir):
   self.store=store;self.dir=Path(data_dir);self.dir.mkdir(parents=True,exist_ok=True);keyfile=self.dir/'master.key'

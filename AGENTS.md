@@ -18,7 +18,7 @@ Read README_部署与使用.md, docs/DESIGN.md and docs/TEST_REPORT.md first. Th
 - Never strip refusal notices found in form text. MX is domain-level evidence, not permission/mailbox delivery proof. Keep role filters and same-business-domain cooldown.
 - First message core body<=120 whitespace-delimited words; greeting/signature/footer are program-owned and excluded. Main title and Amazon publication required; author in signature. Subtitle is optional. Evidence-grounded paraphrases and explicitly hypothetical use cases are allowed; no invented facts.
 - Default automatic reply limit2 per contact. Classify refusals before generating responses; third round is a human task. Attachment/forwarded message text is not fresh sender text.
-- Keep schema migration1/2/3→4: source-key/UID/hash/history intact, secrets unchanged, all automation OFF, old queued/draft→held and unresolved sending→uncertain. Do not downgrade on a migrated production DB.
+- Keep schema migration1/2/3/4→5: source-key/UID/hash/history intact, secrets unchanged, all automation OFF, old queued/draft→held and unresolved sending→uncertain. Do not downgrade on a migrated production DB.
 
 ## Tests
 python -m pip install -r requirements-dev.txt

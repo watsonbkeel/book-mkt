@@ -2,7 +2,12 @@
 import json
 import time
 
-PENDING_LIMIT = 100
+PENDING_LIMIT = 2000
+
+
+def active_pool_size(store):
+    """Pending, ready and queued prospects share one capacity; history is retained separately."""
+    return store.all("SELECT COUNT(*) n FROM contacts WHERE historical=0 AND state IN ('candidate','ready','queued')")[0]['n']
 
 
 def archive_expired(store, max_age_days, now=None):
@@ -12,7 +17,10 @@ def archive_expired(store, max_age_days, now=None):
     with store.tx() as db:
         rows = db.execute("""SELECT c.*, MAX(c.created_at, COALESCE(c.verified_at,0),
             COALESCE((SELECT MAX(retrieved_at) FROM evidence_sources s WHERE s.contact_id=c.id),0)) AS basis
-            FROM contacts c WHERE c.state='candidate' AND c.historical=0""").fetchall()
+            FROM contacts c WHERE c.state IN ('candidate','ready','queued') AND c.historical=0
+            AND (c.state='candidate' OR NOT EXISTS(
+                SELECT 1 FROM messages m WHERE m.contact_id=c.id AND m.direction='outbound'
+                AND (m.attempt_at IS NOT NULL OR m.state IN ('accepted','sending','uncertain'))))""").fetchall()
         for row in rows:
             if row['basis'] > cutoff:
                 continue
@@ -23,8 +31,8 @@ def archive_expired(store, max_age_days, now=None):
             if not isinstance(evidence, dict):
                 evidence = {}
             # Audit is durable across explicit re-verification; permission is never modified.
-            archive = {'at': now, 'reason': 'pending_evidence_expired', 'basis_at': row['basis'],
-                       'max_age_days': max_age_days, 'previous_state': 'candidate'}
+            archive = {'at': now, 'reason': 'pending_evidence_expired' if row['state']=='candidate' else 'uncontacted_evidence_expired', 'basis_at': row['basis'],
+                       'max_age_days': max_age_days, 'previous_state': row['state']}
             evidence['archive'] = archive
             db.execute("UPDATE contacts SET state='archived',evidence_json=?,updated_at=? WHERE id=?",
                        (json.dumps(evidence, ensure_ascii=False), now, row['id']))

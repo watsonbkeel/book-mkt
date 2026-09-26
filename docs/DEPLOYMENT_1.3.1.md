@@ -1,3 +1,5 @@
+> **历史或阶段性记录，非当前操作指南。** 本文的版本、上限、命令、测试与部署状态只对应原记录阶段；保留原文供追溯。当前1.3.2/schema5、2000人候选池及操作方法见[部署与使用](../README_部署与使用.md)。
+
 # 1.3.1 production deployment — 2026-09-25
 
 The owner authorized production deployment, one live model validation and one real email submission. The deployed application code was built from `797cc0b` on `fix/remaining-1.3.1`. The existing Docker Compose project, named data volume, Tailscale bind address, credentials and 1.3.0 image were retained.

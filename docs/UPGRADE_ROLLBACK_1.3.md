@@ -1,59 +1,76 @@
-# Install, upgrade and rollback (1.3.1/schema5)
+# 当前部署的升级、备份与回退
 
-These are operator commands for a later authorized rollout. This development task did not execute them against production.
+适用源码版本 **1.3.2 / schema 5**，默认 Compose 项目 `book-reader-outreach`。执行前确认自己正在操作哪台主机、哪个数据卷和发件账户。新安装见 [部署与使用](../README_部署与使用.md)。
 
-## Upgrade from 1.3.0/schema4
+## 1. 先确认脚本适用范围
 
-Keep old and new source directories separate. From the 1.3.1 source directory, run `bash deploy/upgrade.sh /absolute/path/to/old-1.3.0 --confirm-pause` only after a separate deployment authorization. The script preserves the existing named volume, Tailscale bind settings and `.env`, creates and verifies a private database/key backup, then migrates schema4 to schema5. Migration pauses research, sending and automatic replies, holds unattempted drafts, marks `sending` as uncertain, and retains keys, source/UID history, counters and suppression. It never starts automated sending. Review the held queue and current Profile routes before re-enabling.
+`deploy/setup.sh` 用于新安装/初始化，不作为升级回退保证。当前 `deploy/upgrade.sh` 的检查写死目标 `VERSION=1.3.1`，来源只接受1.0.0/1.1.0/1.2.0/1.3.0；它**不会升级到当前1.3.2**。保留它用于复现历史版本，不能删除版本校验来强行运行。
 
-For rollback, stop the 1.3.1 services and restore the **pre-upgrade** archive into a new empty private directory with `bash deploy/rollback.sh /private/pre-v1.3.1-TIMESTAMP.zip /absolute/new-empty-rollback-data`. The offline script accepts schema4, pauses all automation, holds drafts and marks unfinished submissions uncertain without migrating. Start only matching 1.3.0 code against that restored directory after reconciling mail sent since the backup. Never open schema5 with the old image or delete the migrated volume.
+`Store.init` 仍支持 schema1/2/3/4→5迁移。迁移保留历史、UID、主密钥、密文、计数与停发；暂停全部自动化，旧未发稿暂缓，未决发送标为uncertain。当前schema5代码更新没有结构迁移；内容/Profile变化仍会使相关旧审核失效。
 
-## Fresh install
+## 2. 当前版本的受控更新顺序
 
-```bash
-bash deploy/setup.sh
-```
+以下适用于默认 Compose、干净 Git 工作区和本地磁盘卷。存在覆盖文件、自定义项目名或其他同名服务时，先按实际配置调整，不能照抄卷和容器名。
 
-Creates a private admin and defaults to no research/sending/automatic replies, mode review. Empty `resources/history.json` stays empty. Optional private import: `python -m outreach.cli --data-dir /private/data import-history --input /private/history.json`. Never commit this input.
-
-## Historical 1.2/schema3 → 1.3/schema4
-
-Keep old and new source directories separate. Preserve the old image for rollback. From the new 1.3.1 directory:
+在**更新源码/覆盖镜像之前**：
 
 ```bash
-bash deploy/upgrade.sh /absolute/path/to/old-1.2 --confirm-pause
+git status --short --branch
+git rev-parse HEAD
+docker compose ps
+docker compose exec -T web python -m outreach.cli status
+docker inspect book-reader-outreach-web-1 --format '{{.Image}} {{json .Mounts}} {{json .HostConfig.PortBindings}}'
+# 暂停外发、研究与回复，随后停Worker以免队列继续执行
+docker compose exec -T web python -m outreach.cli pause
+docker compose stop worker
+# web仍运行，脚本在线快照数据库并复制主密钥
+bash deploy/backup.sh
 ```
 
-The current script also accepts old versions 1.0/1.1/1.2 and migrates them through schema4 to schema5. It checks the default project name/no overrides, copies `.env` exactly only if absent (refuses mismatch), and retains the same named volume. WEB_BIND_IP/WEB_PORT, Tailscale and TLS cookie settings are preserved. It builds the new image first, stops old web/worker, runs the OLD image CLI to take an online SQLite/key backup, copies it privately, verifies ZIP entries/key/hash, then initializes schema5 and explicitly pauses before starting services. Backup failure prevents migration/start. No `down -v`, volume deletion or automatic send enablement.
-
-Migration keeps source verification3 and all existing history, ciphertext/master key, message IDs/MIME, UID cursors, suppression/counters, geographic rotation, research interval, timezone/window and lower custom quotas. Old draft/queued messages become held; sending becomes uncertain. Legacy profile explicitly copies existing model/endpoint/key reference; classification override and old research token budget are retained. No model call or source refresh occurs during migration. Known permission pollution is marked for review without replacing its original record.
-
-IMAP has no enable switch: resumed Worker follows its persistent hourly cursor/check cadence. Old services are stopped during upgrade; after restart pending inbound refusals are processed before later sends. Operator must verify health/UID/backlog, profiles/capabilities, evidence, paused queue and uncertain submissions before separately authorizing real tests or enabling automation.
-
-## Rollback into a new empty directory/volume
-
-Stop new services first after separate operational authorization. Keep their data intact. Restore the **pre-upgrade** backup into a new empty private directory:
+保存 `.env`、原先三个开关状态、代码SHA、镜像ID、端口和卷映射到私有运维记录。备份目录必须保持私有，不加入Git。用记录的旧镜像ID创建独立回退标签，例如：
 
 ```bash
-bash deploy/rollback.sh /private/pre-v1.3-TIMESTAMP.zip /absolute/new-empty-rollback-data
+# 将 OLD_IMAGE_ID 和唯一标签替换成实际值
+docker image tag OLD_IMAGE_ID book-reader-outreach:before-update-YYYYMMDD
 ```
 
-This offline script validates the archive and database hash, copies the original key and schema1/2/3/4 database without running new migrations, disables automation, holds pending mail and marks sending uncertain. It refuses nonempty target and schema5. It starts no services. Use code matching the restored schema. Never point an old image at the migrated schema5 volume.
+更新、构建和初始化：
 
-For the default Docker image UID10001, give that UID access to the restored private directory. Mount it through a dedicated old-code Compose override (replace the example absolute path):
-
-```yaml
-services:
-  web:
-    volumes:
-      - /absolute/new-empty-rollback-data:/data
-  worker:
-    volumes:
-      - /absolute/new-empty-rollback-data:/data
+```bash
+# 要求没有未提交工作；有本地修改时先单独处理
+git switch main
+git pull --ff-only
+docker compose build web
+# 共用同一镜像的web/worker均使用此次构建
+docker compose stop web
+docker compose run --rm --no-deps -T web python -m outreach.cli init
+docker compose up -d --no-deps web
+docker compose exec -T web python -m outreach.cli status
+docker compose up -d worker
+docker compose ps
 ```
 
-Use `docker compose -f compose.yaml -f rollback.override.yaml config` in OLD source to verify `/data` maps only to the restored directory and WEB_BIND_IP/WEB_PORT are unchanged. Only after approval start that old deployment. No data volume is deleted. Reconcile any SMTP submissions after the backup before approving held mail; uncertain submissions are never retried automatically. Old/new workers must never run simultaneously for the same sender/data.
+构建或备份失败就停止，保留旧镜像和数据。`init` 不附加 `--seed-history`，不重放历史联系人。已有管理员密码不会变化。保持原 `WEB_BIND_IP/WEB_PORT` 和数据卷，包括原 Tailscale IP。
 
-Mock Docker orchestration tests cover accepted1.2 version, exact .env preservation and backup-failure stop. The authorized production Docker upgrade was completed on 2026-09-25; see docs/DEPLOYMENT_1.3.md. SMTP delivery and live model/search acceptance remain separate from deployment checks.
+升级验收：核对实际schema、`/health`、两个容器健康、Profile路由、小时收件游标/健康、预算、停发、旧未发稿和uncertain记录。不要直接强制发送来验证部署。已经获得持续运行授权时，检查通过后通过后台恢复此前需要的研究、发送与自动回复；这一步是发布流程的一部分，不应无声留在暂停状态。恢复开关不能绕过缺失配置或收信健康门槛。
 
-The backup is first written to private persistent `/data/backups`, then copied to the new source directory's private `backups` folder. Do not use `/tmp` for this step: Compose mounts it as tmpfs and its contents disappear when the backup container exits.
+## 3. 代码回退（schema保持5）
+
+先暂停自动化并停Worker，备份当前数据库，保留新增SMTP记录。仅在旧镜像与当前schema和状态语义兼容时，使用预留镜像：将旧镜像重新标为compose使用的标签，`docker compose up -d --force-recreate web`，先核对再启动Worker。旧代码不理解新档案/任务/审核规则时，保持自动化关闭直到完成处理。不要用旧数据库覆盖刚产生的发送历史。
+
+## 4. schema回退或灾难恢复
+
+**不对迁移后的schema5数据库执行降级。** 回到旧schema必须停止现有服务，使用对应的升级前备份恢复到新空目录/卷，原数据完整保留。
+
+- `deploy/rollback.sh` 调用离线恢复器，只接受schema1/2/3/4备份且目标目录必须为空；它不迁移数据库、不启动服务，并暂停自动化。
+- schema5备份使用当前版本 `outreach.cli restore --input ...`，不是上述旧schema脚本。恢复目标必须是新空数据位置，先用匹配代码核查，恢复会关闭自动化并使旧验证/会话失效。
+- 将恢复目录挂载给旧代码前确认文件权限（Docker默认UID/GID10001）、`.env`、端口和卷；只允许一套Worker运行。
+- 必须核对备份后发生的SMTP提交、回复、退订与投诉，避免重复联系或复活拒绝者。uncertain不自动重发。
+
+```bash
+# 仅示意schema5恢复：目录需全新，使用已安装当前代码的Python环境
+OUTREACH_DATA_DIR=/absolute/new-empty-restored-data \
+  python -m outreach.cli restore --input /private/outreach-backup.zip
+```
+
+禁止 `docker compose down -v` 或删卷来“重新部署”。本文是操作指南，不表示任意主机的真实恢复已经验收；已做与未做的验证分别见 [测试报告](TEST_REPORT.md)。

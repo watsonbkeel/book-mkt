@@ -1,3 +1,8 @@
+# Candidate pool capacity
+
+- Raise the active candidate pool to 2000 (pending, ready and queued combined), validated through the existing queue_target setting; diagnostics show its occupancy.
+- Keep expiry archival and qualification gates. Reverification reaches the full pool, and due research no longer waits for all ready drafts. Daily email and API budgets remain unchanged.
+
 # Continuous reply triage
 
 - Expose stop-contact / automatic-reply / human handling in the inbox and message detail, retain refusal evidence, and distinguish a negative answer about KU from declining contact in the classification prompt.
